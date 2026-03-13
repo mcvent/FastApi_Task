@@ -16,7 +16,7 @@ class GetUserUseCase:
                 if not user:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Пользователь с username '{user_.username}' уже существует"
+                        detail=f"Пользователь не существует"
                     )
                 return UserResponse.model_validate(user)
 
