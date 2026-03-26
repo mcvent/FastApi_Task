@@ -1,8 +1,7 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.locations import LocationResponse, LocationListResponse
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class GetLocationUseCase:
     def __init__(self):
@@ -14,19 +13,24 @@ class GetLocationUseCase:
             with self._database.session() as session:
                 location = self._repo.get_by_id(session, location_id)
                 if not location:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Локация не найдена"
+                    raise NotFoundException(
+                        resource="Location",
+                        field="id",
+                        value=location_id
                     )
                 return LocationResponse.model_validate(location)
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "GetLocationUseCase"
+            e.details["method"] = "get_by_id"
+            e.details["location_id"] = location_id
             raise
         except Exception as e:
-            print(f"Ошибка при получении локации по ID: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении локации по ID: {str(e)}",
+                details={"use_case": "GetLocationUseCase", "location_id": location_id}
             )
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> LocationListResponse:
@@ -38,13 +42,16 @@ class GetLocationUseCase:
                     total=total
                 )
 
-        except HTTPException:
+        except DatabaseException as e:
+            e.details["use_case"] = "GetLocationUseCase"
+            e.details["method"] = "get_all"
+            e.details["skip"] = skip
+            e.details["limit"] = limit
             raise
         except Exception as e:
-            print(f"Ошибка при получении списка локаций: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении списка локаций: {str(e)}",
+                details={"use_case": "GetLocationUseCase"}
             )
 
     async def get_by_name(self, name: str) -> LocationResponse:
@@ -52,17 +59,22 @@ class GetLocationUseCase:
             with self._database.session() as session:
                 location = self._repo.get_by_name(session, name)
                 if not location:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Локация не найдена"
+                    raise NotFoundException(
+                        resource="Location",
+                        field="name",
+                        value=name
                     )
                 return LocationResponse.model_validate(location)
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "GetLocationUseCase"
+            e.details["method"] = "get_by_name"
+            e.details["name"] = name
             raise
         except Exception as e:
-            print(f"Ошибка при получении локации по имени: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении локации по имени: {str(e)}",
+                details={"use_case": "GetLocationUseCase", "name": name}
             )

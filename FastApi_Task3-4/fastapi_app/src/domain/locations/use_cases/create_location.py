@@ -1,27 +1,26 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.locations import LocationCreate, LocationResponse
-from fastapi import HTTPException, status
+from src.exceptions import ConflictError, DatabaseException
 from datetime import datetime
-
 
 class CreateLocationUseCase:
     def __init__(self):
         self._database = database
         self._repo = LocationRepository()
 
-    async def execute(self, location_: LocationCreate
-
-    ) -> LocationResponse:
+    async def execute(self, location_data: LocationCreate) -> LocationResponse:
         try:
             with self._database.session() as session:
-                if self._repo.name_exists(session, location_.name):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Локация с именем '{location_.name}' уже существует"
+                # Проверка на дубликат имени
+                if self._repo.name_exists(session, location_data.name):
+                    raise ConflictError(
+                        resource="Location",
+                        field="name",
+                        value=location_data.name
                     )
 
-                location_dict = location_.model_dump()
+                location_dict = location_data.model_dump()
                 location_dict["created_at"] = datetime.now()
 
                 location = self._repo.create(session, location_dict)
@@ -29,11 +28,14 @@ class CreateLocationUseCase:
 
                 return LocationResponse.model_validate(location)
 
-        except HTTPException:
+        except ConflictError:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "CreateLocationUseCase"
+            e.details["name"] = location_data.name
             raise
         except Exception as e:
-            print(f"Ошибка при создании локации: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Странная ошибка при создании локации: {str(e)}",
+                details={"use_case": "CreateLocationUseCase", "name": location_data.name}
             )

@@ -1,7 +1,6 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class DeleteLocationUseCase:
     def __init__(self):
@@ -13,20 +12,24 @@ class DeleteLocationUseCase:
             with self._database.session() as session:
                 location = self._repo.get_by_id(session, location_id)
                 if not location:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Локация не найдена"
+                    raise NotFoundException(
+                        resource="Location",
+                        field="id",
+                        value=location_id
                     )
 
                 success = self._repo.delete(session, location_id)
                 session.commit()
                 return success
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "DeleteLocationUseCase"
+            e.details["location_id"] = location_id
             raise
         except Exception as e:
-            print(f"Ошибка при удалении локации: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при удалении локации: {str(e)}",
+                details={"use_case": "DeleteLocationUseCase", "location_id": location_id}
             )
