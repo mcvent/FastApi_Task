@@ -1,7 +1,6 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class DeleteCategoryUseCase:
     def __init__(self):
@@ -13,20 +12,24 @@ class DeleteCategoryUseCase:
             with self._database.session() as session:
                 category = self._repo.get_by_id(session, category_id)
                 if not category:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Категория не найдена"
+                    raise NotFoundException(
+                        resource="Category",
+                        field="id",
+                        value=category_id
                     )
 
                 success = self._repo.delete(session, category_id)
                 session.commit()
                 return success
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "DeleteCategoryUseCase"
+            e.details["category_id"] = category_id
             raise
         except Exception as e:
-            print(f"Ошибка при удалении категории: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при удалении категории: {str(e)}",
+                details={"use_case": "DeleteCategoryUseCase", "category_id": category_id}
             )

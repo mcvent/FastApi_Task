@@ -1,8 +1,7 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryUpdate, CategoryResponse
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, ConflictError, DatabaseException
 
 class UpdateCategoryUseCase:
     def __init__(self):
@@ -12,32 +11,41 @@ class UpdateCategoryUseCase:
     async def execute(self, category_id: int, update_data: CategoryUpdate) -> CategoryResponse:
         try:
             with self._database.session() as session:
-                category = self._repo.get_by_id(session, category_id)
-                if not category:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Категория не найдена"
+                # Проверяем существование категории
+                existing_category = self._repo.get_by_id(session, category_id)
+                if not existing_category:
+                    raise NotFoundException(
+                        resource="Category",
+                        field="id",
+                        value=category_id
                     )
 
-                if update_data.slug:
+                # Если меняется slug, проверяем уникальность
+                if update_data.slug is not None and update_data.slug != existing_category.slug:
                     if self._repo.slug_exists(session, update_data.slug):
-                        existing = self._repo.get_by_slug(session, update_data.slug)
-                        if existing and existing.id != category_id:
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"Категория с slug '{update_data.slug}' уже существует"
-                            )
+                        raise ConflictError(
+                            resource="Category",
+                            field="slug",
+                            value=update_data.slug
+                        )
 
-                category = self._repo.update(session, category_id, update_data.model_dump(exclude_unset=True))
+                category = self._repo.update(
+                    session,
+                    category_id,
+                    update_data.model_dump(exclude_unset=True)
+                )
                 session.commit()
 
                 return CategoryResponse.model_validate(category)
 
-        except HTTPException:
+        except (NotFoundException, ConflictError):
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "UpdateCategoryUseCase"
+            e.details["category_id"] = category_id
             raise
         except Exception as e:
-            print(f"Ошибка при обновлении категории: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Странная ошибка при обновлении категории: {str(e)}",
+                details={"use_case": "UpdateCategoryUseCase", "category_id": category_id}
             )

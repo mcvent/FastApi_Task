@@ -1,8 +1,7 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryResponse, CategoryListResponse
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class GetCategoryUseCase:
     def __init__(self):
@@ -14,19 +13,24 @@ class GetCategoryUseCase:
             with self._database.session() as session:
                 category = self._repo.get_by_id(session, category_id)
                 if not category:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Категория не найдена"
+                    raise NotFoundException(
+                        resource="Category",
+                        field="id",
+                        value=category_id
                     )
                 return CategoryResponse.model_validate(category)
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCategoryUseCase"
+            e.details["method"] = "get_by_id"
+            e.details["category_id"] = category_id
             raise
         except Exception as e:
-            print(f"Ошибка при получении категории по ID: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении категории по ID: {str(e)}",
+                details={"use_case": "GetCategoryUseCase", "category_id": category_id}
             )
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> CategoryListResponse:
@@ -38,13 +42,16 @@ class GetCategoryUseCase:
                     total=total
                 )
 
-        except HTTPException:
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCategoryUseCase"
+            e.details["method"] = "get_all"
+            e.details["skip"] = skip
+            e.details["limit"] = limit
             raise
         except Exception as e:
-            print(f"Ошибка при получении списка категорий: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении списка категорий: {str(e)}",
+                details={"use_case": "GetCategoryUseCase"}
             )
 
     async def get_by_slug(self, slug: str) -> CategoryResponse:
@@ -52,17 +59,22 @@ class GetCategoryUseCase:
             with self._database.session() as session:
                 category = self._repo.get_by_slug(session, slug)
                 if not category:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Категория не найдена"
+                    raise NotFoundException(
+                        resource="Category",
+                        field="slug",
+                        value=slug
                     )
                 return CategoryResponse.model_validate(category)
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCategoryUseCase"
+            e.details["method"] = "get_by_slug"
+            e.details["slug"] = slug
             raise
         except Exception as e:
-            print(f"Ошибка при получении категории по slug: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении категории по slug: {str(e)}",
+                details={"use_case": "GetCategoryUseCase", "slug": slug}
             )

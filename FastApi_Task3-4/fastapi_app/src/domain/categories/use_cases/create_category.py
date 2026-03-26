@@ -1,9 +1,8 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryCreate, CategoryResponse
-from fastapi import HTTPException, status
+from src.exceptions import ConflictError, DatabaseException
 from datetime import datetime
-
 
 class CreateCategoryUseCase:
     def __init__(self):
@@ -13,10 +12,12 @@ class CreateCategoryUseCase:
     async def execute(self, category_data: CategoryCreate) -> CategoryResponse:
         try:
             with self._database.session() as session:
+                # Проверка на существующий slug через репозиторий (бизнес-логика)
                 if self._repo.slug_exists(session, category_data.slug):
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Категория с slug '{category_data.slug}' уже существует"
+                    raise ConflictError(
+                        resource="Category",
+                        field="slug",
+                        value=category_data.slug
                     )
 
                 category_dict = category_data.model_dump()
@@ -27,11 +28,14 @@ class CreateCategoryUseCase:
 
                 return CategoryResponse.model_validate(category)
 
-        except HTTPException:
+        except ConflictError:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "CreateCategoryUseCase"
+            e.details["slug"] = category_data.slug
             raise
         except Exception as e:
-            print(f"Ошибка при создании категории: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Странная ошибка при создании категории: {str(e)}",
+                details={"use_case": "CreateCategoryUseCase", "slug": category_data.slug}
             )
