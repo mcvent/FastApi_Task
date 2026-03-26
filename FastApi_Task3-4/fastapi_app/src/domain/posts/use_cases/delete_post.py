@@ -1,7 +1,6 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.posts import PostRepository
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class DeletePostUseCase:
     def __init__(self):
@@ -13,20 +12,24 @@ class DeletePostUseCase:
             with self._database.session() as session:
                 post = self._repo.get_by_id(session, post_id)
                 if not post:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Пост с ID {post_id} не найден"
+                    raise NotFoundException(
+                        resource="Post",
+                        field="id",
+                        value=post_id
                     )
 
                 success = self._repo.delete(session, post_id)
                 session.commit()
                 return success
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "DeletePostUseCase"
+            e.details["post_id"] = post_id
             raise
         except Exception as e:
-            print(f"Ошибка при удалении поста: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при удалении поста: {str(e)}",
+                details={"use_case": "DeletePostUseCase", "post_id": post_id}
             )
