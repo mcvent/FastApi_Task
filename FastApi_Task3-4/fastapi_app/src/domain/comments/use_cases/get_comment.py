@@ -1,8 +1,7 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.comments import CommentRepository
 from src.schemas.comments import CommentResponse, CommentListResponse
-from fastapi import HTTPException, status
-
+from src.exceptions import NotFoundException, DatabaseException
 
 class GetCommentUseCase:
     def __init__(self):
@@ -14,19 +13,24 @@ class GetCommentUseCase:
             with self._database.session() as session:
                 comment = self._repo.get_by_id(session, comment_id)
                 if not comment:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="Комментарий не найден"
+                    raise NotFoundException(
+                        resource="Comment",
+                        field="id",
+                        value=comment_id
                     )
                 return CommentResponse.model_validate(comment)
 
-        except HTTPException:
+        except NotFoundException:
+            raise
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCommentUseCase"
+            e.details["method"] = "get_by_id"
+            e.details["comment_id"] = comment_id
             raise
         except Exception as e:
-            print(f"Ошибка при получении комментария по ID: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении комментария по ID: {str(e)}",
+                details={"use_case": "GetCommentUseCase", "comment_id": comment_id}
             )
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> CommentListResponse:
@@ -38,13 +42,16 @@ class GetCommentUseCase:
                     total=total
                 )
 
-        except HTTPException:
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCommentUseCase"
+            e.details["method"] = "get_all"
+            e.details["skip"] = skip
+            e.details["limit"] = limit
             raise
         except Exception as e:
-            print(f"Ошибка при получении списка комментариев: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении списка комментариев: {str(e)}",
+                details={"use_case": "GetCommentUseCase"}
             )
 
     async def get_by_post(self, post_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
@@ -56,13 +63,17 @@ class GetCommentUseCase:
                     total=total
                 )
 
-        except HTTPException:
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCommentUseCase"
+            e.details["method"] = "get_by_post"
+            e.details["post_id"] = post_id
+            e.details["skip"] = skip
+            e.details["limit"] = limit
             raise
         except Exception as e:
-            print(f"Ошибка при получении комментариев поста: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении комментариев поста: {str(e)}",
+                details={"use_case": "GetCommentUseCase", "post_id": post_id}
             )
 
     async def get_by_author(self, author_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
@@ -74,11 +85,15 @@ class GetCommentUseCase:
                     total=total
                 )
 
-        except HTTPException:
+        except DatabaseException as e:
+            e.details["use_case"] = "GetCommentUseCase"
+            e.details["method"] = "get_by_author"
+            e.details["author_id"] = author_id
+            e.details["skip"] = skip
+            e.details["limit"] = limit
             raise
         except Exception as e:
-            print(f"Ошибка при получении комментариев автора: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
+            raise DatabaseException(
+                message=f"Ошибка при получении комментариев автора: {str(e)}",
+                details={"use_case": "GetCommentUseCase", "author_id": author_id}
             )
