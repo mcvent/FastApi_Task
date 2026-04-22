@@ -8,7 +8,8 @@ from src.schemas.token import TokenData
 
 # Используем HTTPBearer для авторизации по токену
 security = HTTPBearer()
-
+import logging
+logger = logging.getLogger(__name__)
 
 def get_db_session():
     """Зависимость для получения сессии БД"""

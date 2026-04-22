@@ -6,7 +6,8 @@ from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.posts import PostResponse, PostCreate
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 from datetime import datetime
-
+import logging
+logger = logging.getLogger(__name__)
 
 class CreatePostUseCase:
     def __init__(self):

@@ -3,7 +3,8 @@ from src.infrastructure.sqlite.repositories.users import UserRepository
 from src.schemas.users import UserUpdate, UserResponse
 from src.exceptions import NotFoundException, ConflictError, DatabaseException, ForbiddenError
 from src.core.security import get_password_hash
-
+import logging
+logger = logging.getLogger(__name__)
 
 class UpdateUserUseCase:
     def __init__(self):

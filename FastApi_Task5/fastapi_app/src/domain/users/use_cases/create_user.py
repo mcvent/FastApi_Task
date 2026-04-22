@@ -4,7 +4,8 @@ from src.schemas.users import UserCreate, UserResponse
 from src.exceptions import ConflictError, DatabaseException
 from src.core.security import get_password_hash
 from datetime import datetime
-
+import logging
+logger = logging.getLogger(__name__)
 
 class CreateUserUseCase:
     def __init__(self):

@@ -1,13 +1,19 @@
-from fastapi import APIRouter, Query, status, Depends
+from fastapi import APIRouter, Query, status, Depends, UploadFile, File
 from fastapi.responses import JSONResponse
-from src.schemas.posts import PostCreate, PostUpdate, PostResponse, PostListResponse
+from src.schemas.posts import PostCreate, PostUpdate, PostResponse, PostListResponse, PostImageResponse
 from src.domain.posts.use_cases.create_post import CreatePostUseCase
 from src.domain.posts.use_cases.get_post import GetPostUseCase
 from src.domain.posts.use_cases.update_post import UpdatePostUseCase
 from src.domain.posts.use_cases.delete_post import DeletePostUseCase
+from src.domain.posts.use_cases.get_post_image import GetPostImageUseCase
+from src.domain.posts.use_cases.add_post_image import AddPostImageUseCase
 from src.core.dependencies import get_current_user
-from src.exceptions import AppException
+from src.exceptions import (AppException, PostNotFoundByIdException, PostHasNoImageException,
+                            UploadFileIsNotImageException)
 
+from fastapi.responses import FileResponse
+import logging
+logger = logging.getLogger(__name__)
 # Публичный роутер - для GET запросов (без авторизации)
 public_router = APIRouter(prefix="/posts", tags=["Posts"])
 
@@ -51,6 +57,7 @@ async def get_all_posts(
         use_case = GetPostUseCase()
         return await use_case.get_all(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/{post_id}", response_model=PostResponse)
@@ -59,6 +66,7 @@ async def get_post(post_id: int):
         use_case = GetPostUseCase()
         return await use_case.get_by_id(post_id)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/author/{author_id}", response_model=PostListResponse)
@@ -71,6 +79,7 @@ async def get_posts_by_author(
         use_case = GetPostUseCase()
         return await use_case.get_by_author(author_id, skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/published/", response_model=PostListResponse)
@@ -82,6 +91,7 @@ async def get_published_posts(
         use_case = GetPostUseCase()
         return await use_case.get_published(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 # --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
@@ -95,6 +105,7 @@ async def create_post(
         use_case = CreatePostUseCase()
         return await use_case.execute(post_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.patch("/{post_id}", response_model=PostResponse)
@@ -107,6 +118,7 @@ async def update_post(
         use_case = UpdatePostUseCase()
         return await use_case.execute(post_id, update_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.delete("/{post_id}", status_code=204)
@@ -118,4 +130,30 @@ async def delete_post(
         use_case = DeletePostUseCase()
         await use_case.execute(post_id, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+@public_router.get("/image/post/{post_id}", status_code=status.HTTP_200_OK, response_class=FileResponse)
+async def get_post_image(
+    post_id: int,
+    use_case: GetPostImageUseCase = Depends()
+):
+    try:
+        return await use_case.execute(post_id=post_id)
+    except (PostNotFoundByIdException, PostHasNoImageException) as e:
+        logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+
+@protected_router.post("/image/post/{post_id}", status_code=status.HTTP_201_CREATED, response_model=PostImageResponse)
+async def add_post_image(
+    post_id: int,
+    image: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    use_case: AddPostImageUseCase = Depends()
+):
+    try:
+        return await use_case.execute(post_id=post_id, image=image, current_user=current_user)
+    except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)

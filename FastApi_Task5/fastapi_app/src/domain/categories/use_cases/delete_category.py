@@ -1,6 +1,9 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
+import logging
+logger = logging.getLogger(__name__)
+
 
 class DeleteCategoryUseCase:
     def __init__(self):

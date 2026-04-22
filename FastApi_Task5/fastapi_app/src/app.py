@@ -14,6 +14,8 @@ from src.api.posts import public_router as posts_public_router
 from src.api.posts import protected_router as posts_protected_router
 from src.exceptions import AppException
 from src.api.auth import router as auth_router
+import logging
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:

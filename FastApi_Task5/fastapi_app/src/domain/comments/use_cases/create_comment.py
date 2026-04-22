@@ -5,6 +5,8 @@ from src.infrastructure.sqlite.repositories.posts import PostRepository
 from src.schemas.comments import CommentCreate, CommentResponse
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
 
 
 class CreateCommentUseCase:
@@ -36,7 +38,7 @@ class CreateCommentUseCase:
 
                 # Используем ID текущего пользователя, а не из запроса
                 comment_dict = comment_data.model_dump()
-                comment_dict["author_id"] = current_user.get("id")  # <-- Берем из токена
+                comment_dict["author_id"] = current_user.get("id")
                 comment_dict["created_at"] = datetime.now()
 
                 new_comment = self._repo.create(session, comment_dict)

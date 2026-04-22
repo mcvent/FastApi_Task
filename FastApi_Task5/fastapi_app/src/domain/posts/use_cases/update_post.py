@@ -4,7 +4,8 @@ from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.posts import PostResponse, PostUpdate
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
-
+import logging
+logger = logging.getLogger(__name__)
 
 class UpdatePostUseCase:
     def __init__(self):

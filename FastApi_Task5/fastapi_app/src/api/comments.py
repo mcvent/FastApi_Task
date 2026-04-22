@@ -7,7 +7,8 @@ from src.domain.comments.use_cases.update_comment import UpdateCommentUseCase
 from src.domain.comments.use_cases.delete_comment import DeleteCommentUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
-
+import logging
+logger = logging.getLogger(__name__)
 # Публичный роутер - для GET запросов (без авторизации)
 public_router = APIRouter(prefix="/comments", tags=["Comments"])
 
@@ -51,6 +52,7 @@ async def get_all_comments(
         use_case = GetCommentUseCase()
         return await use_case.get_all(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/{comment_id}", response_model=CommentResponse)
@@ -59,6 +61,7 @@ async def get_comment(comment_id: int):
         use_case = GetCommentUseCase()
         return await use_case.get_by_id(comment_id)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/post/{post_id}", response_model=CommentListResponse)
@@ -71,6 +74,7 @@ async def get_comments_by_post(
         use_case = GetCommentUseCase()
         return await use_case.get_by_post(post_id, skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/author/{author_id}", response_model=CommentListResponse)
@@ -83,6 +87,7 @@ async def get_comments_by_author(
         use_case = GetCommentUseCase()
         return await use_case.get_by_author(author_id, skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 # --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
@@ -96,6 +101,7 @@ async def create_comment(
         use_case = CreateCommentUseCase()
         return await use_case.execute(comment_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.patch("/{comment_id}", response_model=CommentResponse)
@@ -108,6 +114,7 @@ async def update_comment(
         use_case = UpdateCommentUseCase()
         return await use_case.execute(comment_id, update_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.delete("/{comment_id}", status_code=204)
@@ -119,4 +126,5 @@ async def delete_comment(
         use_case = DeleteCommentUseCase()
         await use_case.execute(comment_id, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)

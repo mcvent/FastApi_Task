@@ -2,6 +2,9 @@ from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryResponse, CategoryListResponse
 from src.exceptions import NotFoundException, DatabaseException
+import logging
+logger = logging.getLogger(__name__)
+
 
 class GetCategoryUseCase:
     def __init__(self):

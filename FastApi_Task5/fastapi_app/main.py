@@ -1,10 +1,29 @@
 import asyncio
 import uvicorn
 
+import logging
+import sys
+
 from src.app import create_app
 
 app = create_app()
 
+
+def setup_logging():
+    """Настройка логирования - только ERROR и CRITICAL"""
+
+    logging.basicConfig(
+        level=logging.ERROR,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[
+            logging.StreamHandler(sys.stdout),  # В консоль
+            logging.FileHandler('app.log', encoding='utf-8')  # В файл
+        ]
+    )
+
+
+setup_logging()
 
 async def run() -> None:
     config = uvicorn.Config(

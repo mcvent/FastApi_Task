@@ -7,6 +7,8 @@ from src.domain.users.use_cases.update_user import UpdateUserUseCase
 from src.domain.users.use_cases.delete_user import DeleteUserUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
+import logging
+logger = logging.getLogger(__name__)
 
 # Публичный роутер - для GET и POST (регистрация) без авторизации
 public_router = APIRouter(prefix="/users", tags=["Users"])
@@ -51,6 +53,7 @@ async def create_user(user_data: UserCreate):
         use_case = CreateUserUseCase()
         return await use_case.execute(user_data, is_public=True)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -63,6 +66,7 @@ async def get_all_users(
         use_case = GetUserUseCase()
         return await use_case.get_all(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -75,6 +79,7 @@ async def get_active_users(
         use_case = GetUserUseCase()
         return await use_case.get_active_users(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -84,6 +89,7 @@ async def get_user(user_id: int):
         use_case = GetUserUseCase()
         return await use_case.get_by_id(user_id)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -93,6 +99,7 @@ async def get_user_by_username(username: str):
         use_case = GetUserUseCase()
         return await use_case.get_by_username(username)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -102,6 +109,7 @@ async def get_user_by_email(email: str):
         use_case = GetUserUseCase()
         return await use_case.get_by_email(email)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -118,6 +126,7 @@ async def update_user(
         use_case = UpdateUserUseCase()
         return await use_case.execute(user_id, update_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
@@ -131,4 +140,5 @@ async def delete_user(
         use_case = DeleteUserUseCase()
         await use_case.execute(user_id, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)

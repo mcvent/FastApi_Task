@@ -2,7 +2,8 @@ from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.posts import PostRepository
 from src.schemas.posts import PostResponse, PostListResponse
 from src.exceptions import NotFoundException, DatabaseException
-
+import logging
+logger = logging.getLogger(__name__)
 class GetPostUseCase:
     def __init__(self):
         self._database = database

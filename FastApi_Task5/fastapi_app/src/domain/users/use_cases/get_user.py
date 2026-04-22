@@ -3,6 +3,8 @@ from src.infrastructure.sqlite.repositories.users import UserRepository
 from src.schemas.users import UserResponse, UserListResponse
 from src.exceptions import NotFoundException, DatabaseException
 from src.infrastructure.sqlite.models.users import User
+import logging
+logger = logging.getLogger(__name__)
 
 class GetUserUseCase:
     def __init__(self):

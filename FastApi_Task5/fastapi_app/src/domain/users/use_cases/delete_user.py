@@ -1,7 +1,8 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.users import UserRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
-
+import logging
+logger = logging.getLogger(__name__)
 
 class DeleteUserUseCase:
     def __init__(self):

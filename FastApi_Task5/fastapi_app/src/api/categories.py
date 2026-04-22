@@ -7,7 +7,8 @@ from src.domain.categories.use_cases.update_category import UpdateCategoryUseCas
 from src.domain.categories.use_cases.delete_category import DeleteCategoryUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
-
+import logging
+logger = logging.getLogger(__name__)
 # Публичный роутер - для GET запросов (без авторизации)
 public_router = APIRouter(prefix="/categories", tags=["Categories"])
 
@@ -50,6 +51,7 @@ async def get_all_categories(
         use_case = GetCategoryUseCase()
         return await use_case.get_all(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/{category_id}", response_model=CategoryResponse)
@@ -58,6 +60,7 @@ async def get_category(category_id: int):
         use_case = GetCategoryUseCase()
         return await use_case.get_by_id(category_id)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/slug/{slug}", response_model=CategoryResponse)
@@ -66,6 +69,7 @@ async def get_category_by_slug(slug: str):
         use_case = GetCategoryUseCase()
         return await use_case.get_by_slug(slug)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 # --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
@@ -79,6 +83,7 @@ async def create_category(
         use_case = CreateCategoryUseCase()
         return await use_case.execute(category_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.patch("/{category_id}", response_model=CategoryResponse)
@@ -91,6 +96,7 @@ async def update_category(
         use_case = UpdateCategoryUseCase()
         return await use_case.execute(category_id, update_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.delete("/{category_id}", status_code=204)
@@ -102,4 +108,5 @@ async def delete_category(
         use_case = DeleteCategoryUseCase()
         await use_case.execute(category_id, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)

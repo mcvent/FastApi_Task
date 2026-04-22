@@ -1,6 +1,8 @@
 from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
+import logging
+logger = logging.getLogger(__name__)
 
 class DeleteLocationUseCase:
     def __init__(self):

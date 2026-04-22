@@ -7,7 +7,8 @@ from src.domain.locations.use_cases.update_location import UpdateLocationUseCase
 from src.domain.locations.use_cases.delete_location import DeleteLocationUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
-
+import logging
+logger = logging.getLogger(__name__)
 # Публичный роутер - для GET запросов (без авторизации)
 public_router = APIRouter(prefix="/locations", tags=["Locations"])
 
@@ -51,6 +52,7 @@ async def get_all_locations(
         use_case = GetLocationUseCase()
         return await use_case.get_all(skip=skip, limit=limit)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/{location_id}", response_model=LocationResponse)
@@ -59,6 +61,7 @@ async def get_location(location_id: int):
         use_case = GetLocationUseCase()
         return await use_case.get_by_id(location_id)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @public_router.get("/name/{name}", response_model=LocationResponse)
@@ -67,6 +70,7 @@ async def get_location_by_name(name: str):
         use_case = GetLocationUseCase()
         return await use_case.get_by_name(name)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 # --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
@@ -80,6 +84,7 @@ async def create_location(
         use_case = CreateLocationUseCase()
         return await use_case.execute(location_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.patch("/{location_id}", response_model=LocationResponse)
@@ -92,6 +97,7 @@ async def update_location(
         use_case = UpdateLocationUseCase()
         return await use_case.execute(location_id, update_data, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)
 
 @protected_router.delete("/{location_id}", status_code=204)
@@ -103,4 +109,5 @@ async def delete_location(
         use_case = DeleteLocationUseCase()
         await use_case.execute(location_id, current_user)
     except AppException as e:
+        logger.error(e.get_detail())
         return handle_app_exception(e)

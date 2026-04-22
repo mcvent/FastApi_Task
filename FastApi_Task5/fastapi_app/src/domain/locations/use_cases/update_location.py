@@ -2,6 +2,8 @@ from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.locations import LocationUpdate, LocationResponse
 from src.exceptions import NotFoundException, ConflictError, DatabaseException, ForbiddenError
+import logging
+logger = logging.getLogger(__name__)
 
 class UpdateLocationUseCase:
     def __init__(self):

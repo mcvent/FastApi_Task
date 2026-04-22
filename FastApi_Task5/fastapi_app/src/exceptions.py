@@ -14,6 +14,12 @@ class AppException(Exception):
         self.details = details or {}
         super().__init__(self.message)
 
+    def get_detail(self) -> str:
+        """Возвращает детальное сообщение для логирования"""
+        detail = f"{self.code}: {self.message}"
+        if self.details:
+            detail += f" - {self.details}"
+        return detail
 
 # Infrastructure exceptions
 class DatabaseException(AppException):

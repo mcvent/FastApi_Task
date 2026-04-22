@@ -3,6 +3,9 @@ from src.infrastructure.sqlite.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryCreate, CategoryResponse
 from src.exceptions import ConflictError, DatabaseException, ForbiddenError
 from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
+
 
 class CreateCategoryUseCase:
     def __init__(self):

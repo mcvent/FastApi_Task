@@ -49,3 +49,6 @@ class PostResponse(PostBase):
 class PostListResponse(BaseModel):
     items: list[PostResponse]
     total: int
+
+class PostImageResponse(BaseModel):
+    image_path: str

@@ -2,6 +2,8 @@ from src.infrastructure.sqlite.database import database
 from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.locations import LocationResponse, LocationListResponse
 from src.exceptions import NotFoundException, DatabaseException
+import logging
+logger = logging.getLogger(__name__)
 
 class GetLocationUseCase:
     def __init__(self):

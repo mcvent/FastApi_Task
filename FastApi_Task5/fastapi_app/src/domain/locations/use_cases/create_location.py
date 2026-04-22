@@ -3,6 +3,8 @@ from src.infrastructure.sqlite.repositories.locations import LocationRepository
 from src.schemas.locations import LocationCreate, LocationResponse
 from src.exceptions import ConflictError, DatabaseException, ForbiddenError
 from datetime import datetime
+import logging
+logger = logging.getLogger(__name__)
 
 class CreateLocationUseCase:
     def __init__(self):
