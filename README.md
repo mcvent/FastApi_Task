@@ -13,7 +13,7 @@
 
 ```bash
 # Клонировать репозиторий
-git clone <your-repo-url>
+git clone git@github.com:mcvent/FastApi_Task.git
 cd FastApi_Task5
 
 # Создать файл с переменными окружения
