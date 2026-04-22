@@ -3,17 +3,15 @@ import uvicorn
 
 import logging
 import sys
+from src.core.config import settings
 
 from src.app import create_app
 
-app = create_app()
-
-
 def setup_logging():
-    """Настройка логирования - только ERROR и CRITICAL"""
+    """Настройка логирования"""
 
     logging.basicConfig(
-        level=logging.ERROR,
+        level=settings.get_log_level(),
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=[
@@ -24,7 +22,7 @@ def setup_logging():
 
 
 setup_logging()
-
+app = create_app()
 async def run() -> None:
     config = uvicorn.Config(
         "main:app", host="127.0.0.1", port=8000, reload=False

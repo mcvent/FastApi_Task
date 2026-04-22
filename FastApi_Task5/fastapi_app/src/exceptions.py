@@ -156,3 +156,30 @@ class ForbiddenError(DomainException):
             code="forbidden",
             details=error_details
         )
+
+class PostNotFoundByIdException(AppException):
+    """Пост не найден по ID"""
+    def __init__(self, post_id: int):
+        super().__init__(
+            message=f"Пост с id={post_id} не найден",
+            code="post_not_found",
+            details={"post_id": post_id}
+        )
+
+
+class PostHasNoImageException(AppException):
+    """У поста нет изображения"""
+    def __init__(self):
+        super().__init__(
+            message="У данного поста нет изображения",
+            code="post_has_no_image"
+        )
+
+
+class UploadFileIsNotImageException(AppException):
+    """Загруженный файл не является изображением"""
+    def __init__(self):
+        super().__init__(
+            message="Загруженный файл должен быть изображением (jpeg, jpg, png)",
+            code="invalid_image_format"
+        )

@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Используем российское зеркало Яндекса
+RUN sed -i 's|deb.debian.org|mirror.yandex.ru|g' /etc/apt/sources.list.d/debian.sources
+
+# Устанавливаем системные зависимости
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libsqlite3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Копируем код приложения
+COPY fastapi_app/ ./fastapi_app/
+COPY alembic.ini .
+COPY alembic/ ./alembic/
+COPY .env .
+
+# Копируем entrypoint
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Устанавливаем PYTHONPATH
+ENV PYTHONPATH=/app
+
+# Открываем порт
+EXPOSE 8000
+
+# Entrypoint для запуска миграций и приложения
+ENTRYPOINT ["/entrypoint.sh"]
