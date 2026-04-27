@@ -25,5 +25,8 @@ cp .env.example .env
 # Запустить проект
 docker-compose up -d --build
 
+# Выполнить миграции базы данных
+docker compose exec backend python manage.py migrate 
+
 # Проверить работу
 curl http://127.0.0.1:8000/docs
