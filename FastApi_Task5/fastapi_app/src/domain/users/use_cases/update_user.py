@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.users import UserRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.users import UserRepository
 from src.schemas.users import UserUpdate, UserResponse
 from src.exceptions import NotFoundException, ConflictError, DatabaseException, ForbiddenError
 from src.core.security import get_password_hash
@@ -22,9 +22,9 @@ class UpdateUserUseCase:
                     details={"user_id": user_id, "current_user_id": current_user.get("id")}
                 )
 
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверяем существование пользователя
-                existing_user = self._repo.get_by_id(session, user_id)
+                existing_user = await self._repo.get_by_id(session, user_id)
                 if not existing_user:
                     raise NotFoundException(
                         resource="User",
@@ -34,7 +34,7 @@ class UpdateUserUseCase:
 
                 # Если меняется email, проверяем уникальность
                 if update_data.email is not None and update_data.email != existing_user.email:
-                    if update_data.email and self._repo.email_exists(session, update_data.email):
+                    if update_data.email and await self._repo.email_exists(session, update_data.email):
                         raise ConflictError(
                             resource="User",
                             field="email",
@@ -47,8 +47,8 @@ class UpdateUserUseCase:
                     update_dict["password"] = get_password_hash(update_dict["password"])
 
                 # Обновляем
-                updated_user = self._repo.update(session, user_id, update_dict)
-                session.commit()
+                updated_user = await self._repo.update(session, user_id, update_dict)
+                await session.commit()
 
                 return UserResponse.model_validate(updated_user)
 

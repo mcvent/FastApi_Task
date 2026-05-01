@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.comments import CommentRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.schemas.comments import CommentUpdate, CommentResponse
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
@@ -13,8 +13,8 @@ class UpdateCommentUseCase:
 
     async def execute(self, comment_id: int, update_data: CommentUpdate, current_user: dict) -> CommentResponse:
         try:
-            with self._database.session() as session:
-                comment = self._repo.get_by_id(session, comment_id)
+            async with self._database.session() as session:
+                comment = await self._repo.get_by_id(session, comment_id)
                 if not comment:
                     raise NotFoundException(
                         resource="Comment",
@@ -23,7 +23,7 @@ class UpdateCommentUseCase:
                     )
 
                 # Проверка: только автор комментария может редактировать
-                print (current_user.get("id"))
+                print(current_user.get("id"))
                 if comment.author_id != current_user.get("id"):
                     raise ForbiddenError(
                         message="Только автор комментария может его редактировать",
@@ -32,12 +32,12 @@ class UpdateCommentUseCase:
                         details={"comment_author_id": comment.author_id, "current_user_id": current_user.get("id")}
                     )
 
-                updated_comment = self._repo.update(
+                updated_comment = await self._repo.update(
                     session,
                     comment_id,
                     update_data.model_dump(exclude_unset=True)
                 )
-                session.commit()
+                await session.commit()
 
                 return CommentResponse.model_validate(updated_comment)
 

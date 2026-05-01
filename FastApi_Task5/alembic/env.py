@@ -1,19 +1,18 @@
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from alembic import context
+import asyncio
 import sys
 from pathlib import Path
+from logging.config import fileConfig
+from sqlalchemy import engine_from_config, pool
+from sqlalchemy.ext.asyncio import AsyncEngine
+from alembic import context
 
-# Добавляем src в path для импорта моделей
+# Добавляем путь к src
 sys.path.insert(0, str(Path(__file__).parent.parent / "fastapi_app"))
 
-from src.infrastructure.sqlite.database import Base
-from src.infrastructure.sqlite.models.users import User
-from src.infrastructure.sqlite.models.categories import Category
-from src.infrastructure.sqlite.models.locations import Location
-from src.infrastructure.sqlite.models.comments import Comment
-from src.infrastructure.sqlite.models.posts import Post
+# Импортируем настройки и модели
+from src.core.config import settings
+from src.infrastructure.postgres.database import Base
+from src.infrastructure.postgres.models import User, Category, Location, Comment, Post
 
 config = context.config
 
@@ -22,38 +21,58 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Берём URL из настроек
+config.set_main_option("sqlalchemy.url", settings.postgres_url)
 
-def run_migrations_offline() -> None:
+POSTGRES_SCHEMA = settings.POSTGRES_SCHEMA
+CREATE_SCHEMA_QUERY = f"CREATE SCHEMA IF NOT EXISTS {POSTGRES_SCHEMA};"
+
+
+def filter_foreign_schemas(name, type_, parent_names):
+    return type_ != "schema" or name == POSTGRES_SCHEMA
+
+
+def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_schema=POSTGRES_SCHEMA,
+        include_schemas=True,
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table_schema=POSTGRES_SCHEMA,
+        include_schemas=True,
+        include_name=filter_foreign_schemas,
     )
+    with context.begin_transaction():
+        context.execute(CREATE_SCHEMA_QUERY)
+        context.run_migrations()
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata
-        )
 
-        with context.begin_transaction():
-            context.run_migrations()
+async def run_migrations_online():
+    connectable = AsyncEngine(
+        engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+            future=True,
+        ),
+    )
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    asyncio.run(run_migrations_online())

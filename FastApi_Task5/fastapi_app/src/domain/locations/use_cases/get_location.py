@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.locations import LocationRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.locations import LocationRepository
 from src.schemas.locations import LocationResponse, LocationListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
@@ -12,8 +12,8 @@ class GetLocationUseCase:
 
     async def get_by_id(self, location_id: int) -> LocationResponse:
         try:
-            with self._database.session() as session:
-                location = self._repo.get_by_id(session, location_id)
+            async with self._database.session() as session:
+                location = await self._repo.get_by_id(session, location_id)
                 if not location:
                     raise NotFoundException(
                         resource="Location",
@@ -37,8 +37,8 @@ class GetLocationUseCase:
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> LocationListResponse:
         try:
-            with self._database.session() as session:
-                locations, total = self._repo.get_all(session, skip, limit)
+            async with self._database.session() as session:
+                locations, total = await self._repo.get_all(session, skip, limit)
                 return LocationListResponse(
                     items=[LocationResponse.model_validate(l) for l in locations],
                     total=total
@@ -58,8 +58,8 @@ class GetLocationUseCase:
 
     async def get_by_name(self, name: str) -> LocationResponse:
         try:
-            with self._database.session() as session:
-                location = self._repo.get_by_name(session, name)
+            async with self._database.session() as session:
+                location = await self._repo.get_by_name(session, name)
                 if not location:
                     raise NotFoundException(
                         resource="Location",

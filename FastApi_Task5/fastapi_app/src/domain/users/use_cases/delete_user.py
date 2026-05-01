@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.users import UserRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.users import UserRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
 logger = logging.getLogger(__name__)
@@ -23,8 +23,8 @@ class DeleteUserUseCase:
                     details={"user_id": user_id, "current_user_id": current_user.get("id")}
                 )
 
-            with self._database.session() as session:
-                user = self._repo.get_by_id(session, user_id)
+            async with self._database.session() as session:
+                user = await self._repo.get_by_id(session, user_id)
                 if not user:
                     raise NotFoundException(
                         resource="User",
@@ -32,8 +32,8 @@ class DeleteUserUseCase:
                         value=user_id
                     )
 
-                success = self._repo.delete(session, user_id)
-                session.commit()
+                success = await self._repo.delete(session, user_id)
+                await session.commit()
                 return success
 
         except (NotFoundException, ForbiddenError):

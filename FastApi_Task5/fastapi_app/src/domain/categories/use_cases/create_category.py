@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.categories import CategoryRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryCreate, CategoryResponse
 from src.exceptions import ConflictError, DatabaseException, ForbiddenError
 from datetime import datetime
@@ -22,9 +22,9 @@ class CreateCategoryUseCase:
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
 
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверка на существующий slug через репозиторий (бизнес-логика)
-                if self._repo.slug_exists(session, category_data.slug):
+                if await self._repo.slug_exists(session, category_data.slug):
                     raise ConflictError(
                         resource="Category",
                         field="slug",
@@ -34,8 +34,8 @@ class CreateCategoryUseCase:
                 category_dict = category_data.model_dump()
                 category_dict["created_at"] = datetime.now()
 
-                category = self._repo.create(session, category_dict)
-                session.commit()
+                category = await self._repo.create(session, category_dict)
+                await session.commit()
 
                 return CategoryResponse.model_validate(category)
 

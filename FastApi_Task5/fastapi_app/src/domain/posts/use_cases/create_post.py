@@ -1,8 +1,8 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.posts import PostRepository
-from src.infrastructure.sqlite.repositories.users import UserRepository
-from src.infrastructure.sqlite.repositories.categories import CategoryRepository
-from src.infrastructure.sqlite.repositories.locations import LocationRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.posts import PostRepository
+from src.infrastructure.postgres.repositories.users import UserRepository
+from src.infrastructure.postgres.repositories.categories import CategoryRepository
+from src.infrastructure.postgres.repositories.locations import LocationRepository
 from src.schemas.posts import PostResponse, PostCreate
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 from datetime import datetime
@@ -27,10 +27,10 @@ class CreatePostUseCase:
                     user_role="anonymous"
                 )
 
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверяем существование категории (если указана)
                 if post_data.category_id:
-                    category = self._category_repo.get_by_id(session, post_data.category_id)
+                    category = await self._category_repo.get_by_id(session, post_data.category_id)
                     if not category:
                         raise NotFoundException(
                             resource="Category",
@@ -40,7 +40,7 @@ class CreatePostUseCase:
 
                 # Проверяем существование локации (если указана)
                 if post_data.location_id:
-                    location = self._location_repo.get_by_id(session, post_data.location_id)
+                    location = await self._location_repo.get_by_id(session, post_data.location_id)
                     if not location:
                         raise NotFoundException(
                             resource="Location",
@@ -53,8 +53,8 @@ class CreatePostUseCase:
                 post_dict["author_id"] = current_user.get("id")  # <-- Берем из токена
                 post_dict["created_at"] = datetime.now()
 
-                new_post = self._repo.create(session, post_dict)
-                session.commit()
+                new_post = await self._repo.create(session, post_dict)
+                await session.commit()
 
                 return PostResponse.model_validate(new_post)
 

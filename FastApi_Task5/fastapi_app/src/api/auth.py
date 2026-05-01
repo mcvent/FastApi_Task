@@ -3,26 +3,27 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.users import UserRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.users import UserRepository
 from src.core.security import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.schemas.token import Token
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-def get_db_session():
-    with database.session() as session:
+async def get_db_session():
+    async with database.session() as session:
         yield session
 
 
 @router.post("/login", response_model=Token)
 async def login(
         form_data: OAuth2PasswordRequestForm = Depends(),
-        db: Session = Depends(get_db_session)
+        db: AsyncSession  = Depends(get_db_session)
 ):
     user_repo = UserRepository()
-    user = user_repo.get_by_username(db, form_data.username)
+    user = await user_repo.get_by_username(db, form_data.username)
 
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(

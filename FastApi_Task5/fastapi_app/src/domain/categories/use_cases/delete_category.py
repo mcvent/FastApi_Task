@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.categories import CategoryRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
 logger = logging.getLogger(__name__)
@@ -20,8 +20,8 @@ class DeleteCategoryUseCase:
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
 
-            with self._database.session() as session:
-                category = self._repo.get_by_id(session, category_id)
+            async with self._database.session() as session:
+                category = await self._repo.get_by_id(session, category_id)
                 if not category:
                     raise NotFoundException(
                         resource="Category",
@@ -29,8 +29,8 @@ class DeleteCategoryUseCase:
                         value=category_id
                     )
 
-                success = self._repo.delete(session, category_id)
-                session.commit()
+                success = await self._repo.delete(session, category_id)
+                await session.commit()
                 return success
 
         except (NotFoundException, ForbiddenError):

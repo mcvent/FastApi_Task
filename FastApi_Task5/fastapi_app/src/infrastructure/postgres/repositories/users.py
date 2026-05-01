@@ -1,18 +1,20 @@
-from typing import Type, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError, OperationalError
-from src.infrastructure.sqlite.models.users import User
+from typing import Type, Optional, List, Tuple
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete, func
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from src.infrastructure.postgres.models.users import User
 from src.exceptions import DatabaseException, IntegrityError as DBIntegrityError
+
 
 class UserRepository:
     def __init__(self):
         self._model: Type[User] = User
 
-    def create(self, session: Session, user_data: dict) -> User:
+    async def create(self, session: AsyncSession, user_data: dict) -> User:
         try:
             user = self._model(**user_data)
             session.add(user)
-            session.flush()
+            await session.flush()
             return user
         except IntegrityError as e:
             raise DBIntegrityError(
@@ -26,38 +28,55 @@ class UserRepository:
                 details={"table": "auth_user"}
             )
 
-    def get_by_id(self, session: Session, user_id: int) -> Optional[User]:
+    async def get_by_id(self, session: AsyncSession, user_id: int) -> Optional[User]:
         try:
-            return session.query(self._model).filter(self._model.id == user_id).first()
+            result = await session.execute(
+                select(self._model).where(self._model.id == user_id)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка при получении пользователя: {str(e)}",
                 details={"table": "auth_user", "user_id": user_id}
             )
 
-    def get_by_username(self, session: Session, username: str) -> Optional[User]:
+    async def get_by_username(self, session: AsyncSession, username: str) -> Optional[User]:
         try:
-            return session.query(self._model).filter(self._model.username == username).first()
+            result = await session.execute(
+                select(self._model).where(self._model.username == username)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка при получении пользователя по username: {str(e)}",
                 details={"table": "auth_user", "username": username}
             )
 
-    def get_by_email(self, session: Session, email: str) -> Optional[User]:
+    async def get_by_email(self, session: AsyncSession, email: str) -> Optional[User]:
         try:
-            return session.query(self._model).filter(self._model.email == email).first()
+            result = await session.execute(
+                select(self._model).where(self._model.email == email)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка при получении пользователя по email: {str(e)}",
                 details={"table": "auth_user", "email": email}
             )
 
-    def get_all(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[User], int]:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> Tuple[List[User], int]:
         try:
-            query = session.query(self._model)
-            total = query.count()
-            users = query.offset(skip).limit(limit).all()
+            # Получаем общее количество
+            count_result = await session.execute(
+                select(func.count()).select_from(self._model)
+            )
+            total = count_result.scalar_one()
+
+            # Получаем пользователей с пагинацией
+            result = await session.execute(
+                select(self._model).offset(skip).limit(limit)
+            )
+            users = result.scalars().all()
             return users, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -65,11 +84,19 @@ class UserRepository:
                 details={"table": "auth_user", "skip": skip, "limit": limit}
             )
 
-    def get_active_users(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[User], int]:
+    async def get_active_users(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> Tuple[List[User], int]:
         try:
-            query = session.query(self._model).filter(self._model.is_active == True)
-            total = query.count()
-            users = query.offset(skip).limit(limit).all()
+            # Получаем общее количество активных пользователей
+            count_result = await session.execute(
+                select(func.count()).select_from(self._model).where(self._model.is_active == True)
+            )
+            total = count_result.scalar_one()
+
+            # Получаем активных пользователей с пагинацией
+            result = await session.execute(
+                select(self._model).where(self._model.is_active == True).offset(skip).limit(limit)
+            )
+            users = result.scalars().all()
             return users, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -77,19 +104,18 @@ class UserRepository:
                 details={"table": "auth_user", "skip": skip, "limit": limit}
             )
 
-
-    def update(self, session: Session, user_id: int, update_data: dict) -> Optional[User]:
+    async def update(self, session: AsyncSession, user_id: int, update_data: dict) -> Optional[User]:
         try:
-            user = self.get_by_id(session, user_id)
-            if not user:
-                return None
+            # Обновляем пользователя
+            await session.execute(
+                update(self._model)
+                .where(self._model.id == user_id)
+                .values(**update_data)
+            )
+            await session.flush()
 
-            for field, value in update_data.items():
-                if hasattr(user, field) and value is not None:
-                    setattr(user, field, value)
-
-            session.flush()
-            return user
+            # Возвращаем обновлённого пользователя
+            return await self.get_by_id(session, user_id)
         except IntegrityError as e:
             raise DBIntegrityError(
                 message="Нарушение целостности данных при обновлении",
@@ -102,14 +128,13 @@ class UserRepository:
                 details={"table": "auth_user", "user_id": user_id}
             )
 
-    def delete(self, session: Session, user_id: int) -> bool:
+    async def delete(self, session: AsyncSession, user_id: int) -> bool:
         try:
-            user = self.get_by_id(session, user_id)
-            if not user:
-                return False
-            session.delete(user)
-            session.flush()
-            return True
+            result = await session.execute(
+                delete(self._model).where(self._model.id == user_id)
+            )
+            await session.flush()
+            return result.rowcount > 0
         except IntegrityError as e:
             raise DBIntegrityError(
                 message="Невозможно удалить пользователя (есть связанные записи)",
@@ -122,18 +147,24 @@ class UserRepository:
                 details={"table": "auth_user", "user_id": user_id}
             )
 
-    def username_exists(self, session: Session, username: str) -> bool:
+    async def username_exists(self, session: AsyncSession, username: str) -> bool:
         try:
-            return session.query(self._model).filter(self._model.username == username).first() is not None
+            result = await session.execute(
+                select(self._model.id).where(self._model.username == username).limit(1)
+            )
+            return result.first() is not None
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Данный username уже зарегистрирован: {str(e)}",
                 details={"username": username}
             )
 
-    def email_exists(self, session: Session, email: str) -> bool:
+    async def email_exists(self, session: AsyncSession, email: str) -> bool:
         try:
-            return session.query(self._model).filter(self._model.email == email).first() is not None
+            result = await session.execute(
+                select(self._model.id).where(self._model.email == email).limit(1)
+            )
+            return result.first() is not None
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Данный email уже зарегистрирован: {str(e)}",

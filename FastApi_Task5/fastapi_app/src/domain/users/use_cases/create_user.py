@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.users import UserRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.users import UserRepository
 from src.schemas.users import UserCreate, UserResponse
 from src.exceptions import ConflictError, DatabaseException
 from src.core.security import get_password_hash
@@ -19,9 +19,9 @@ class CreateUserUseCase:
         """
         try:
 
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверка на существующий username
-                if self._repo.username_exists(session, user_data.username):
+                if await self._repo.username_exists(session, user_data.username):
                     raise ConflictError(
                         resource="User",
                         field="username",
@@ -29,7 +29,7 @@ class CreateUserUseCase:
                     )
 
                 # Проверка на существующий email (если указан)
-                if user_data.email and self._repo.email_exists(session, user_data.email):
+                if user_data.email and await self._repo.email_exists(session, user_data.email):
                     raise ConflictError(
                         resource="User",
                         field="email",
@@ -49,8 +49,8 @@ class CreateUserUseCase:
                 if not user_dict.get("last_name"):
                     user_dict["last_name"] = ""
 
-                new_user = self._repo.create(session, user_dict)
-                session.commit()
+                new_user = await self._repo.create(session, user_dict)
+                await session.commit()
 
                 return UserResponse.model_validate(new_user)
 

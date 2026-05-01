@@ -1,9 +1,10 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.posts import PostRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.posts import PostRepository
 from src.schemas.posts import PostResponse, PostListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
 logger = logging.getLogger(__name__)
+
 class GetPostUseCase:
     def __init__(self):
         self._database = database
@@ -11,8 +12,8 @@ class GetPostUseCase:
 
     async def get_by_id(self, post_id: int) -> PostResponse:
         try:
-            with self._database.session() as session:
-                post = self._repo.get_by_id(session, post_id)
+            async with self._database.session() as session:
+                post = await self._repo.get_by_id(session, post_id)
                 if not post:
                     raise NotFoundException(
                         resource="Post",
@@ -36,8 +37,8 @@ class GetPostUseCase:
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> PostListResponse:
         try:
-            with self._database.session() as session:
-                posts, total = self._repo.get_all(session, skip, limit)
+            async with self._database.session() as session:
+                posts, total = await self._repo.get_all(session, skip, limit)
                 return PostListResponse(
                     items=[PostResponse.model_validate(p) for p in posts],
                     total=total
@@ -57,8 +58,8 @@ class GetPostUseCase:
 
     async def get_by_author(self, author_id: int, skip: int = 0, limit: int = 100) -> PostListResponse:
         try:
-            with self._database.session() as session:
-                posts, total = self._repo.get_by_author(session, author_id, skip, limit)
+            async with self._database.session() as session:
+                posts, total = await self._repo.get_by_author(session, author_id, skip, limit)
                 return PostListResponse(
                     items=[PostResponse.model_validate(p) for p in posts],
                     total=total
@@ -79,8 +80,8 @@ class GetPostUseCase:
 
     async def get_published(self, skip: int = 0, limit: int = 100) -> PostListResponse:
         try:
-            with self._database.session() as session:
-                posts, total = self._repo.get_published(session, skip, limit)
+            async with self._database.session() as session:
+                posts, total = await self._repo.get_published(session, skip, limit)
                 return PostListResponse(
                     items=[PostResponse.model_validate(p) for p in posts],
                     total=total

@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.locations import LocationRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.locations import LocationRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
 logger = logging.getLogger(__name__)
@@ -17,8 +17,8 @@ class DeleteLocationUseCase:
                     required_role="superuser",
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
-            with self._database.session() as session:
-                location = self._repo.get_by_id(session, location_id)
+            async with self._database.session() as session:
+                location = await self._repo.get_by_id(session, location_id)
                 if not location:
                     raise NotFoundException(
                         resource="Location",
@@ -26,8 +26,8 @@ class DeleteLocationUseCase:
                         value=location_id
                     )
 
-                success = self._repo.delete(session, location_id)
-                session.commit()
+                success = await self._repo.delete(session, location_id)
+                await session.commit()
                 return success
 
         except (NotFoundException, ForbiddenError):

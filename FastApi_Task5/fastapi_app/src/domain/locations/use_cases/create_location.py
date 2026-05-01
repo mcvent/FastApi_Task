@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.locations import LocationRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.locations import LocationRepository
 from src.schemas.locations import LocationCreate, LocationResponse
 from src.exceptions import ConflictError, DatabaseException, ForbiddenError
 from datetime import datetime
@@ -19,9 +19,9 @@ class CreateLocationUseCase:
                     required_role="superuser",
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверка на дубликат имени
-                if self._repo.name_exists(session, location_data.name):
+                if await self._repo.name_exists(session, location_data.name):
                     raise ConflictError(
                         resource="Location",
                         field="name",
@@ -31,8 +31,8 @@ class CreateLocationUseCase:
                 location_dict = location_data.model_dump()
                 location_dict["created_at"] = datetime.now()
 
-                location = self._repo.create(session, location_dict)
-                session.commit()
+                location = await self._repo.create(session, location_dict)
+                await session.commit()
 
                 return LocationResponse.model_validate(location)
 

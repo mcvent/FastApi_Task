@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.comments import CommentRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.schemas.comments import CommentResponse, CommentListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
@@ -12,8 +12,8 @@ class GetCommentUseCase:
 
     async def get_by_id(self, comment_id: int) -> CommentResponse:
         try:
-            with self._database.session() as session:
-                comment = self._repo.get_by_id(session, comment_id)
+            async with self._database.session() as session:
+                comment = await self._repo.get_by_id(session, comment_id)
                 if not comment:
                     raise NotFoundException(
                         resource="Comment",
@@ -37,8 +37,8 @@ class GetCommentUseCase:
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            with self._database.session() as session:
-                comments, total = self._repo.get_all(session, skip, limit)
+            async with self._database.session() as session:
+                comments, total = await self._repo.get_all(session, skip, limit)
                 return CommentListResponse(
                     items=[CommentResponse.model_validate(c) for c in comments],
                     total=total
@@ -58,8 +58,8 @@ class GetCommentUseCase:
 
     async def get_by_post(self, post_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            with self._database.session() as session:
-                comments, total = self._repo.get_by_post(session, post_id, skip, limit)
+            async with self._database.session() as session:
+                comments, total = await self._repo.get_by_post(session, post_id, skip, limit)
                 return CommentListResponse(
                     items=[CommentResponse.model_validate(c) for c in comments],
                     total=total
@@ -80,8 +80,8 @@ class GetCommentUseCase:
 
     async def get_by_author(self, author_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            with self._database.session() as session:
-                comments, total = self._repo.get_by_author(session, author_id, skip, limit)
+            async with self._database.session() as session:
+                comments, total = await self._repo.get_by_author(session, author_id, skip, limit)
                 return CommentListResponse(
                     items=[CommentResponse.model_validate(c) for c in comments],
                     total=total

@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, SecretStr
 from typing import Optional
 import os
 from pathlib import Path
@@ -16,12 +16,23 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, env="DEBUG")
 
     # База данных
-    DATABASE_URL: str = Field(
-        default="sqlite:///./db.sqlite3",
-        env="DATABASE_URL"
-    )
+    # DATABASE_URL: str = Field(
+    #     default="postgres:///./db.sqlite3",
+    #     env="DATABASE_URL"
+    # )
 
+    POSTGRES_SCHEMA: str
+    POSTGRES_HOST: str
+    POSTGRES_DB: str
+    POSTGRES_PORT: int
+    POSTGRES_USER: SecretStr
+    POSTGRES_PASSWORD: SecretStr
+    POSTGRES_RECONNECT_INTERVAL_SEC: int
 
+    @property
+    def postgres_url(self) -> str:
+        creds = f"{self.POSTGRES_USER.get_secret_value()}:{self.POSTGRES_PASSWORD.get_secret_value()}"
+        return f"postgresql+asyncpg://{creds}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
     # Безопасность
     SECRET_KEY: str = Field(..., env="SECRET_KEY")
@@ -30,8 +41,8 @@ class Settings(BaseSettings):
     LOG_FILE: str = Field(default="app.log", env="LOG_FILE")
     LOG_LEVEL: str = Field(default="ERROR", env="LOG_LEVEL")
 
-    # Пути
-    BASE_DIR: str = Field(default=str(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), env="BASE_DIR")
+    # # Пути
+    # BASE_DIR: str = Field(default=str(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), env="BASE_DIR")
 
     class Config:
         env_file = str(BASE_DIR / ".env")

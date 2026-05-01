@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.comments import CommentRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
 logger = logging.getLogger(__name__)
@@ -12,8 +12,8 @@ class DeleteCommentUseCase:
 
     async def execute(self, comment_id: int, current_user: dict) -> bool:
         try:
-            with self._database.session() as session:
-                comment = self._repo.get_by_id(session, comment_id)
+            async with self._database.session() as session:
+                comment = await self._repo.get_by_id(session, comment_id)
                 if not comment:
                     raise NotFoundException(
                         resource="Comment",
@@ -38,8 +38,8 @@ class DeleteCommentUseCase:
                         }
                     )
 
-                success = self._repo.delete(session, comment_id)
-                session.commit()
+                success = await self._repo.delete(session, comment_id)
+                await session.commit()
                 return success
 
         except (NotFoundException, ForbiddenError):

@@ -3,8 +3,8 @@ import shutil
 import os
 from fastapi import UploadFile
 
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.posts import PostRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.posts import PostRepository
 from src.schemas.posts import PostImageResponse
 from src.exceptions import UploadFileIsNotImageException, PostNotFoundByIdException, ForbiddenError
 import logging
@@ -29,9 +29,9 @@ class AddPostImageUseCase:
         if file_extension not in allowed_extensions:
             raise UploadFileIsNotImageException()
 
-        with self._database.session() as session:
+        async with self._database.session() as session:
             # Проверяем существование поста
-            post = self._repo.get_by_id(session, post_id)
+            post = await self._repo.get_by_id(session, post_id)
             if not post:
                 raise PostNotFoundByIdException(post_id)
 
@@ -49,6 +49,6 @@ class AddPostImageUseCase:
 
             # Обновляем запись в БД - сохраняем путь к изображению
             post.image = new_image_name
-            session.commit()
+            await session.commit()
 
             return PostImageResponse(image_path=new_image_name)

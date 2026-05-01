@@ -1,7 +1,7 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.comments import CommentRepository
-from src.infrastructure.sqlite.repositories.users import UserRepository
-from src.infrastructure.sqlite.repositories.posts import PostRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.comments import CommentRepository
+from src.infrastructure.postgres.repositories.users import UserRepository
+from src.infrastructure.postgres.repositories.posts import PostRepository
 from src.schemas.comments import CommentCreate, CommentResponse
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 from datetime import datetime
@@ -26,9 +26,9 @@ class CreateCommentUseCase:
                     user_role="anonymous"
                 )
 
-            with self._database.session() as session:
+            async with self._database.session() as session:
                 # Проверяем существование поста
-                post = self._post_repo.get_by_id(session, comment_data.post_id)
+                post = await self._post_repo.get_by_id(session, comment_data.post_id)
                 if not post:
                     raise NotFoundException(
                         resource="Post",
@@ -41,8 +41,8 @@ class CreateCommentUseCase:
                 comment_dict["author_id"] = current_user.get("id")
                 comment_dict["created_at"] = datetime.now()
 
-                new_comment = self._repo.create(session, comment_dict)
-                session.commit()
+                new_comment = await self._repo.create(session, comment_dict)
+                await session.commit()
 
                 return CommentResponse.model_validate(new_comment)
 

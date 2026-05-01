@@ -1,5 +1,5 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.categories import CategoryRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryResponse, CategoryListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
@@ -13,8 +13,8 @@ class GetCategoryUseCase:
 
     async def get_by_id(self, category_id: int) -> CategoryResponse:
         try:
-            with self._database.session() as session:
-                category = self._repo.get_by_id(session, category_id)
+            async with self._database.session() as session:
+                category = await self._repo.get_by_id(session, category_id)
                 if not category:
                     raise NotFoundException(
                         resource="Category",
@@ -38,8 +38,8 @@ class GetCategoryUseCase:
 
     async def get_all(self, skip: int = 0, limit: int = 100) -> CategoryListResponse:
         try:
-            with self._database.session() as session:
-                categories, total = self._repo.get_all(session, skip, limit)
+            async with self._database.session() as session:
+                categories, total = await self._repo.get_all(session, skip, limit)
                 return CategoryListResponse(
                     items=[CategoryResponse.model_validate(c) for c in categories],
                     total=total
@@ -59,8 +59,8 @@ class GetCategoryUseCase:
 
     async def get_by_slug(self, slug: str) -> CategoryResponse:
         try:
-            with self._database.session() as session:
-                category = self._repo.get_by_slug(session, slug)
+            async with self._database.session() as session:
+                category = await self._repo.get_by_slug(session, slug)
                 if not category:
                     raise NotFoundException(
                         resource="Category",

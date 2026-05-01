@@ -1,6 +1,6 @@
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.posts import PostRepository
-from src.infrastructure.sqlite.repositories.comments import CommentRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.posts import PostRepository
+from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
 logger = logging.getLogger(__name__)
@@ -13,8 +13,8 @@ class DeletePostUseCase:
 
     async def execute(self, post_id: int, current_user: dict) -> bool:
         try:
-            with self._database.session() as session:
-                post = self._repo.get_by_id(session, post_id)
+            async with self._database.session() as session:
+                post = await self._repo.get_by_id(session, post_id)
                 if not post:
                     raise NotFoundException(
                         resource="Post",
@@ -40,11 +40,11 @@ class DeletePostUseCase:
                     )
 
                 # Удаляем все комментарии к посту
-                comments_deleted = self._comment_repo.delete_by_post_id(session, post_id)
+                comments_deleted = await self._comment_repo.delete_by_post_id(session, post_id)
 
                 # Удаляем пост
-                success = self._repo.delete(session, post_id)
-                session.commit()
+                success = await self._repo.delete(session, post_id)
+                await session.commit()
 
                 print(f"Удален пост {post_id} и {comments_deleted} комментариев к нему")
                 return success

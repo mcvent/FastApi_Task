@@ -1,18 +1,21 @@
 from typing import Type, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete, func
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from src.infrastructure.sqlite.models.locations import Location
+from src.infrastructure.postgres.models.locations import Location
 from src.exceptions import DatabaseException, IntegrityError as DBIntegrityError
+
 
 class LocationRepository:
     def __init__(self):
         self._model: Type[Location] = Location
 
-    def create(self, session: Session, location_data: dict) -> Location:
+    async def create(self, session: AsyncSession, location_data: dict) -> Location:
         try:
             location = self._model(**location_data)
             session.add(location)
-            session.flush()
+            await session.flush()
+            await session.refresh(location)
             return location
         except IntegrityError as e:
             # Ошибка уникальности имени
@@ -27,29 +30,41 @@ class LocationRepository:
                 details={"table": "blog_location"}
             )
 
-    def get_by_id(self, session: Session, location_id: int) -> Optional[Location]:
+    async def get_by_id(self, session: AsyncSession, location_id: int) -> Optional[Location]:
         try:
-            return session.query(self._model).filter(self._model.id == location_id).first()
+            result = await session.execute(
+                select(self._model).where(self._model.id == location_id)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка БД при получении локации по ID: {str(e)}",
                 details={"table": "blog_location", "location_id": location_id}
             )
 
-    def get_by_name(self, session: Session, name: str) -> Optional[Location]:
+    async def get_by_name(self, session: AsyncSession, name: str) -> Optional[Location]:
         try:
-            return session.query(self._model).filter(self._model.name == name).first()
+            result = await session.execute(
+                select(self._model).where(self._model.name == name)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка БД при получении локации по имени: {str(e)}",
                 details={"table": "blog_location", "name": name}
             )
 
-    def get_all(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[Location], int]:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> tuple[list[Location], int]:
         try:
-            query = session.query(self._model)
-            total = query.count()
-            locations = query.offset(skip).limit(limit).all()
+            # Получаем общее количество
+            count_result = await session.execute(select(func.count()).select_from(self._model))
+            total = count_result.scalar_one()
+
+            # Получаем записи с пагинацией
+            result = await session.execute(
+                select(self._model).offset(skip).limit(limit)
+            )
+            locations = result.scalars().all()
             return locations, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -57,11 +72,19 @@ class LocationRepository:
                 details={"table": "blog_location", "skip": skip, "limit": limit}
             )
 
-    def get_published(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[Location], int]:
+    async def get_published(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> tuple[list[Location], int]:
         try:
-            query = session.query(self._model).filter(self._model.is_published == True)
-            total = query.count()
-            locations = query.offset(skip).limit(limit).all()
+            # Получаем общее количество опубликованных
+            count_result = await session.execute(
+                select(func.count()).where(self._model.is_published == True)
+            )
+            total = count_result.scalar_one()
+
+            # Получаем опубликованные записи с пагинацией
+            result = await session.execute(
+                select(self._model).where(self._model.is_published == True).offset(skip).limit(limit)
+            )
+            locations = result.scalars().all()
             return locations, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -69,18 +92,23 @@ class LocationRepository:
                 details={"table": "blog_location", "skip": skip, "limit": limit}
             )
 
-    def update(self, session: Session, location_id: int, update_data: dict) -> Optional[Location]:
+    async def update(self, session: AsyncSession, location_id: int, update_data: dict) -> Optional[Location]:
         try:
-            location = self.get_by_id(session, location_id)
-            if not location:
+            # Сначала проверяем, существует ли запись
+            existing = await self.get_by_id(session, location_id)
+            if not existing:
                 return None
 
-            for field, value in update_data.items():
-                if hasattr(location, field) and value is not None:
-                    setattr(location, field, value)
+            # Выполняем обновление
+            await session.execute(
+                update(self._model)
+                .where(self._model.id == location_id)
+                .values(**update_data)
+            )
+            await session.flush()
 
-            session.flush()
-            return location
+            # Возвращаем обновлённую запись
+            return await self.get_by_id(session, location_id)
         except IntegrityError as e:
             raise DBIntegrityError(
                 message="Нарушение целостности данных: локация с таким именем уже существует",
@@ -93,14 +121,13 @@ class LocationRepository:
                 details={"table": "blog_location", "location_id": location_id}
             )
 
-    def delete(self, session: Session, location_id: int) -> bool:
+    async def delete(self, session: AsyncSession, location_id: int) -> bool:
         try:
-            location = self.get_by_id(session, location_id)
-            if not location:
-                return False
-            session.delete(location)
-            session.flush()
-            return True
+            result = await session.execute(
+                delete(self._model).where(self._model.id == location_id)
+            )
+            await session.flush()
+            return result.rowcount > 0
         except IntegrityError as e:
             raise DBIntegrityError(
                 message="Невозможно удалить локацию (возможно, есть связанные посты)",
@@ -113,9 +140,12 @@ class LocationRepository:
                 details={"table": "blog_location", "location_id": location_id}
             )
 
-    def name_exists(self, session: Session, name: str) -> bool:
+    async def name_exists(self, session: AsyncSession, name: str) -> bool:
         try:
-            return session.query(self._model).filter(self._model.name == name).first() is not None
+            result = await session.execute(
+                select(self._model).where(self._model.name == name)
+            )
+            return result.scalar_one_or_none() is not None
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка БД при проверке существования имени: {str(e)}",

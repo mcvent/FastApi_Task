@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from fastapi_app.src.core.config import settings
 
 # revision identifiers, used by Alembic.
 revision: str = '8ed846c4eb1e'

@@ -1,8 +1,8 @@
 from fastapi.responses import FileResponse
 import os
 
-from src.infrastructure.sqlite.database import database
-from src.infrastructure.sqlite.repositories.posts import PostRepository
+from src.infrastructure.postgres.database import database
+from src.infrastructure.postgres.repositories.posts import PostRepository
 from src.exceptions import PostNotFoundByIdException, PostHasNoImageException
 import logging
 logger = logging.getLogger(__name__)
@@ -14,8 +14,8 @@ class GetPostImageUseCase:
         self.image_folder = "static/images"
 
     async def execute(self, post_id: int) -> FileResponse:
-        with self._database.session() as session:
-            post = self._repo.get_by_id(session, post_id)
+        async with self._database.session() as session:
+            post = await self._repo.get_by_id(session, post_id)
 
             if not post:
                 raise PostNotFoundByIdException(post_id)

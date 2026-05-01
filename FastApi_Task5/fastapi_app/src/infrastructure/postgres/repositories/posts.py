@@ -1,21 +1,22 @@
 from typing import Type, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update, delete
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from src.infrastructure.sqlite.models.posts import Post
+from src.infrastructure.postgres.models.posts import Post
 from src.exceptions import DatabaseException, IntegrityError as DBIntegrityError
+
 
 class PostRepository:
     def __init__(self):
         self._model: Type[Post] = Post
 
-    def create(self, session: Session, post_data: dict) -> Post:
+    async def create(self, session: AsyncSession, post_data: dict) -> Post:
         try:
             post = self._model(**post_data)
             session.add(post)
-            session.flush()
+            await session.flush()
             return post
         except IntegrityError as e:
-            # Например, если есть уникальные ограничения или проблемы с FK
             raise DBIntegrityError(
                 message="Нарушение целостности данных при создании поста",
                 field="author_id, category_id или location_id",
@@ -27,20 +28,29 @@ class PostRepository:
                 details={"table": "blog_post"}
             )
 
-    def get_by_id(self, session: Session, post_id: int) -> Optional[Post]:
+    async def get_by_id(self, session: AsyncSession, post_id: int) -> Optional[Post]:
         try:
-            return session.query(self._model).filter(self._model.id == post_id).first()
+            result = await session.execute(
+                select(self._model).where(self._model.id == post_id)
+            )
+            return result.scalar_one_or_none()
         except SQLAlchemyError as e:
             raise DatabaseException(
                 message=f"Ошибка при получении поста по ID: {str(e)}",
                 details={"table": "blog_post", "post_id": post_id}
             )
 
-    def get_all(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[Post], int]:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> tuple[list[Post], int]:
         try:
-            query = session.query(self._model)
-            total = query.count()
-            posts = query.offset(skip).limit(limit).all()
+            # Получаем общее количество
+            count_result = await session.execute(select(self._model))
+            total = len(count_result.scalars().all())
+
+            # Получаем посты с пагинацией
+            result = await session.execute(
+                select(self._model).offset(skip).limit(limit)
+            )
+            posts = result.scalars().all()
             return posts, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -48,11 +58,23 @@ class PostRepository:
                 details={"table": "blog_post", "skip": skip, "limit": limit}
             )
 
-    def get_by_author(self, session: Session, author_id: int, skip: int = 0, limit: int = 100) -> tuple[list[Post], int]:
+    async def get_by_author(self, session: AsyncSession, author_id: int, skip: int = 0, limit: int = 100) -> tuple[
+        list[Post], int]:
         try:
-            query = session.query(self._model).filter(self._model.author_id == author_id)
-            total = query.count()
-            posts = query.offset(skip).limit(limit).all()
+            # Получаем общее количество постов автора
+            count_result = await session.execute(
+                select(self._model).where(self._model.author_id == author_id)
+            )
+            total = len(count_result.scalars().all())
+
+            # Получаем посты автора с пагинацией
+            result = await session.execute(
+                select(self._model)
+                .where(self._model.author_id == author_id)
+                .offset(skip)
+                .limit(limit)
+            )
+            posts = result.scalars().all()
             return posts, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -60,11 +82,22 @@ class PostRepository:
                 details={"table": "blog_post", "author_id": author_id, "skip": skip, "limit": limit}
             )
 
-    def get_published(self, session: Session, skip: int = 0, limit: int = 100) -> tuple[list[Post], int]:
+    async def get_published(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> tuple[list[Post], int]:
         try:
-            query = session.query(self._model).filter(self._model.is_published == True)
-            total = query.count()
-            posts = query.offset(skip).limit(limit).all()
+            # Получаем общее количество опубликованных постов
+            count_result = await session.execute(
+                select(self._model).where(self._model.is_published == True)
+            )
+            total = len(count_result.scalars().all())
+
+            # Получаем опубликованные посты с пагинацией
+            result = await session.execute(
+                select(self._model)
+                .where(self._model.is_published == True)
+                .offset(skip)
+                .limit(limit)
+            )
+            posts = result.scalars().all()
             return posts, total
         except SQLAlchemyError as e:
             raise DatabaseException(
@@ -72,17 +105,19 @@ class PostRepository:
                 details={"table": "blog_post", "skip": skip, "limit": limit}
             )
 
-    def update(self, session: Session, post_id: int, update_data: dict) -> Optional[Post]:
+    async def update(self, session: AsyncSession, post_id: int, update_data: dict) -> Optional[Post]:
         try:
-            post = self.get_by_id(session, post_id)
+            # Проверяем, существует ли пост
+            post = await self.get_by_id(session, post_id)
             if not post:
                 return None
 
+            # Обновляем поля
             for field, value in update_data.items():
                 if hasattr(post, field) and value is not None:
                     setattr(post, field, value)
 
-            session.flush()
+            await session.flush()
             return post
         except IntegrityError as e:
             raise DBIntegrityError(
@@ -96,16 +131,14 @@ class PostRepository:
                 details={"table": "blog_post", "post_id": post_id}
             )
 
-    def delete(self, session: Session, post_id: int) -> bool:
+    async def delete(self, session: AsyncSession, post_id: int) -> bool:
         try:
-            post = self.get_by_id(session, post_id)
-            if not post:
-                return False
-            session.delete(post)
-            session.flush()
-            return True
+            result = await session.execute(
+                delete(self._model).where(self._model.id == post_id)
+            )
+            await session.flush()
+            return result.rowcount > 0
         except IntegrityError as e:
-            # Например, если есть каскадные ограничения или связанные записи, которые нельзя удалить
             raise DBIntegrityError(
                 message="Невозможно удалить пост (возможно, есть связанные ограничения)",
                 field="post_id",
