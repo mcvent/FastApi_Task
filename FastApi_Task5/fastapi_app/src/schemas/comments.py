@@ -34,6 +34,15 @@ class CommentUpdate(BaseModel):
             raise ValueError("Текст комментария содержит недопустимые символы")
         return v
 
+class CommentImageResponse(BaseModel):
+    id: int
+    image_path: str
+
+
+class CommentImagesListResponse(BaseModel):
+    items: list[CommentImageResponse]
+    total: int
+
 class CommentResponse(CommentBase):
     model_config = ConfigDict(from_attributes=True)
     id: int

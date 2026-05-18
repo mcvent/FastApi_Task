@@ -45,6 +45,12 @@ def create_app() -> FastAPI:
             "db_query_error": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "db_integrity_error": status.HTTP_422_UNPROCESSABLE_ENTITY,
             "forbidden": status.HTTP_403_FORBIDDEN,
+
+            "comment_not_found": status.HTTP_404_NOT_FOUND,
+            "post_not_found": status.HTTP_404_NOT_FOUND,
+            "image_not_found": status.HTTP_404_NOT_FOUND,
+            "post_has_no_image": status.HTTP_404_NOT_FOUND,
+            "upload_file_is_not_image": status.HTTP_400_BAD_REQUEST,
         }
 
         status_code = status_code_map.get(exc.code, status.HTTP_500_INTERNAL_SERVER_ERROR)

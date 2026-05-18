@@ -9,7 +9,7 @@ from src.domain.posts.use_cases.get_post_image import GetPostImageUseCase
 from src.domain.posts.use_cases.add_post_image import AddPostImageUseCase
 from src.schemas.posts import PostImagesListResponse
 from src.domain.posts.use_cases.get_post_image import GetPostImageUseCase
-from src.domain.posts.use_cases.delete_post_image    import DeletePostImageUseCase
+from src.domain.posts.use_cases.delete_post_image import DeletePostImageUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import (AppException, PostNotFoundByIdException, PostHasNoImageException,
                             UploadFileIsNotImageException)
@@ -35,6 +35,11 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
         "db_query_error": status.HTTP_500_INTERNAL_SERVER_ERROR,
         "db_integrity_error": status.HTTP_400_BAD_REQUEST,
         "forbidden": status.HTTP_403_FORBIDDEN,
+        "comment_not_found": status.HTTP_404_NOT_FOUND,
+        "post_not_found": status.HTTP_404_NOT_FOUND,
+        "image_not_found": status.HTTP_404_NOT_FOUND,
+        "post_has_no_image": status.HTTP_404_NOT_FOUND,
+        "upload_file_is_not_image": status.HTTP_400_BAD_REQUEST,
     }
     status_code = status_code_map.get(exc.code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 

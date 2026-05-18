@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Query, status, Depends
-from fastapi.responses import JSONResponse
-from src.schemas.comments import CommentCreate, CommentUpdate, CommentResponse, CommentListResponse
+from fastapi import APIRouter, Query, status, Depends, File, UploadFile
+from fastapi.responses import JSONResponse, FileResponse
+from src.schemas.comments import (CommentCreate, CommentUpdate,
+                                  CommentResponse, CommentListResponse,
+                                  CommentImageResponse,
+                                  CommentImagesListResponse
+                                  )
 from src.domain.comments.use_cases.create_comment import CreateCommentUseCase
 from src.domain.comments.use_cases.get_comment import GetCommentUseCase
 from src.domain.comments.use_cases.update_comment import UpdateCommentUseCase
 from src.domain.comments.use_cases.delete_comment import DeleteCommentUseCase
+from src.domain.comments.use_cases.add_comment_image import AddCommentImageUseCase
+from src.domain.comments.use_cases.get_comment_images import GetCommentImagesUseCase
+from src.domain.comments.use_cases.delete_comment_image import DeleteCommentImageUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
 import logging
@@ -27,6 +34,11 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
         "db_query_error": status.HTTP_500_INTERNAL_SERVER_ERROR,
         "db_integrity_error": status.HTTP_400_BAD_REQUEST,
         "forbidden": status.HTTP_403_FORBIDDEN,
+        "comment_not_found": status.HTTP_404_NOT_FOUND,
+        "post_not_found": status.HTTP_404_NOT_FOUND,
+        "image_not_found": status.HTTP_404_NOT_FOUND,
+        "post_has_no_image": status.HTTP_404_NOT_FOUND,
+        "upload_file_is_not_image": status.HTTP_400_BAD_REQUEST,
     }
     status_code = status_code_map.get(exc.code, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -40,8 +52,6 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
             }
         }
     )
-
-# --- PUBLIC ROUTES (GET) на public_router ---
 
 @public_router.get("/", response_model=CommentListResponse)
 async def get_all_comments(
@@ -90,7 +100,6 @@ async def get_comments_by_author(
         logger.error(e.get_detail())
         return handle_app_exception(e)
 
-# --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
 
 @protected_router.post("/", status_code=201, response_model=CommentResponse)
 async def create_comment(
@@ -127,4 +136,56 @@ async def delete_comment(
         await use_case.execute(comment_id, current_user)
     except AppException as e:
         logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+
+
+@protected_router.post("/{comment_id}/images/", status_code=status.HTTP_201_CREATED, response_model=CommentImageResponse)
+async def add_comment_image(
+    comment_id: int,
+    image: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    use_case: AddCommentImageUseCase = Depends(),
+):
+    try:
+        return await use_case.execute(comment_id=comment_id, image=image, current_user=current_user)
+    except AppException as e:
+        return handle_app_exception(e)
+
+
+@public_router.get("/{comment_id}/images/", response_model=CommentImagesListResponse)
+async def get_comment_images(
+    comment_id: int,
+    use_case: GetCommentImagesUseCase = Depends(),
+):
+    try:
+        return await use_case.execute(comment_id=comment_id)
+    except AppException as e:
+        return handle_app_exception(e)
+
+
+@protected_router.delete("/{comment_id}/images/{image_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_comment_image(
+    comment_id: int,
+    image_id: int,
+    current_user: dict = Depends(get_current_user),
+    use_case: DeleteCommentImageUseCase = Depends(),
+):
+    try:
+        await use_case.execute(comment_id=comment_id, image_id=image_id, current_user=current_user)
+    except AppException as e:
+        return handle_app_exception(e)
+
+
+# В src/api/comments.py (public_router)
+
+@public_router.get("/{comment_id}/images/{image_id}/", response_class=FileResponse)
+async def get_comment_image_by_id(
+    comment_id: int,
+    image_id: int,
+    use_case: GetCommentImagesUseCase = Depends(),
+):
+    try:
+        return await use_case.get_by_id(comment_id=comment_id, image_id=image_id)
+    except AppException as e:
         return handle_app_exception(e)

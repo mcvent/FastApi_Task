@@ -191,3 +191,12 @@ class ImageNotFoundException(AppException):
             code="image_not_found",
             details={"image_id": image_id}
         )
+
+
+class CommentNotFoundByIdException(AppException):
+    def __init__(self, comment_id: int):
+        super().__init__(
+            message=f"Комментарий с id={comment_id} не найден",
+            code="comment_not_found",
+            details={"comment_id": comment_id}
+        )
