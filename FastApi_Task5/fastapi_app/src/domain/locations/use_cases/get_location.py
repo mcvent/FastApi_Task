@@ -1,27 +1,26 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.locations import LocationRepository
 from src.schemas.locations import LocationResponse, LocationListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 class GetLocationUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = LocationRepository()
+    def __init__(self, repo: LocationRepository):
+        self._repo = repo
 
-    async def get_by_id(self, location_id: int) -> LocationResponse:
+    async def get_by_id(self, session: AsyncSession, location_id: int) -> LocationResponse:
         try:
-            async with self._database.session() as session:
-                location = await self._repo.get_by_id(session, location_id)
-                if not location:
-                    raise NotFoundException(
-                        resource="Location",
-                        field="id",
-                        value=location_id
-                    )
-                return LocationResponse.model_validate(location)
-
+            location = await self._repo.get_by_id(session, location_id)
+            if not location:
+                raise NotFoundException(
+                    resource="Location",
+                    field="id",
+                    value=location_id
+                )
+            return LocationResponse.model_validate(location)
         except NotFoundException:
             raise
         except DatabaseException as e:
@@ -35,15 +34,13 @@ class GetLocationUseCase:
                 details={"use_case": "GetLocationUseCase", "location_id": location_id}
             )
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> LocationListResponse:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> LocationListResponse:
         try:
-            async with self._database.session() as session:
-                locations, total = await self._repo.get_all(session, skip, limit)
-                return LocationListResponse(
-                    items=[LocationResponse.model_validate(l) for l in locations],
-                    total=total
-                )
-
+            locations, total = await self._repo.get_all(session, skip, limit)
+            return LocationListResponse(
+                items=[LocationResponse.model_validate(l) for l in locations],
+                total=total
+            )
         except DatabaseException as e:
             e.details["use_case"] = "GetLocationUseCase"
             e.details["method"] = "get_all"
@@ -56,18 +53,16 @@ class GetLocationUseCase:
                 details={"use_case": "GetLocationUseCase"}
             )
 
-    async def get_by_name(self, name: str) -> LocationResponse:
+    async def get_by_name(self, session: AsyncSession, name: str) -> LocationResponse:
         try:
-            async with self._database.session() as session:
-                location = await self._repo.get_by_name(session, name)
-                if not location:
-                    raise NotFoundException(
-                        resource="Location",
-                        field="name",
-                        value=name
-                    )
-                return LocationResponse.model_validate(location)
-
+            location = await self._repo.get_by_name(session, name)
+            if not location:
+                raise NotFoundException(
+                    resource="Location",
+                    field="name",
+                    value=name
+                )
+            return LocationResponse.model_validate(location)
         except NotFoundException:
             raise
         except DatabaseException as e:

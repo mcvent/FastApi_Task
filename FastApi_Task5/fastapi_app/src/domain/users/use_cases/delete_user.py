@@ -7,10 +7,11 @@ logger = logging.getLogger(__name__)
 
 
 class DeleteUserUseCase:
-    def __init__(self, repo: UserRepository):
+    def __init__(self, session: AsyncSession, repo: UserRepository):
         self._repo = repo
+        self._session = session
 
-    async def execute(self, session: AsyncSession, user_id: int, current_user: dict) -> bool:
+    async def execute(self, user_id: int, current_user: dict) -> bool:
         try:
             # Проверка: сам пользователь или админ могут удалять
             is_self = current_user.get("id") == user_id
@@ -24,7 +25,7 @@ class DeleteUserUseCase:
                     details={"user_id": user_id, "current_user_id": current_user.get("id")}
                 )
 
-            user = await self._repo.get_by_id(session, user_id)
+            user = await self._repo.get_by_id(self._session, user_id)
             if not user:
                 raise NotFoundException(
                     resource="User",
@@ -32,8 +33,8 @@ class DeleteUserUseCase:
                     value=user_id
                 )
 
-            success = await self._repo.delete(session, user_id)
-            await session.commit()
+            success = await self._repo.delete(self._session, user_id)
+            await self._session.commit()
             return success
 
         except (NotFoundException, ForbiddenError):

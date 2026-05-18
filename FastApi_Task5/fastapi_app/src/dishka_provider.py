@@ -52,36 +52,37 @@ class AppProvider(Provider):
         async with database.session() as session:
             yield session
 
-    # Репозитории
+    # ========== Репозитории (НЕ зависят от session) ==========
     @provide(scope=Scope.REQUEST)
-    def get_post_repo(self, session: AsyncSession) -> PostRepository:
+    def get_post_repo(self) -> PostRepository:
         return PostRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_comment_repo(self, session: AsyncSession) -> CommentRepository:
+    def get_comment_repo(self) -> CommentRepository:
         return CommentRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_category_repo(self, session: AsyncSession) -> CategoryRepository:
+    def get_category_repo(self) -> CategoryRepository:
         return CategoryRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_location_repo(self, session: AsyncSession) -> LocationRepository:
+    def get_location_repo(self) -> LocationRepository:
         return LocationRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_user_repo(self, session: AsyncSession) -> UserRepository:
+    def get_user_repo(self) -> UserRepository:
         return UserRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_post_image_repo(self, session: AsyncSession) -> PostImageRepository:
+    def get_post_image_repo(self) -> PostImageRepository:
         return PostImageRepository()
 
     @provide(scope=Scope.REQUEST)
-    def get_comment_image_repo(self, session: AsyncSession) -> CommentImageRepository:
+    def get_comment_image_repo(self) -> CommentImageRepository:
         return CommentImageRepository()
 
-    # Use Cases (posts)
+    # ========== Use Cases (Posts) ==========
+    # CREATE/UPDATE/DELETE — нужна session
     @provide(scope=Scope.REQUEST)
     def get_create_post_uc(
         self, session: AsyncSession, repo: PostRepository,
@@ -103,10 +104,12 @@ class AppProvider(Provider):
     ) -> DeletePostUseCase:
         return DeletePostUseCase(session, repo, comment_repo)
 
+    # GET — НЕ нужна session
     @provide(scope=Scope.REQUEST)
     def get_get_post_uc(self, repo: PostRepository) -> GetPostUseCase:
         return GetPostUseCase(repo)
 
+    # CREATE/UPDATE/DELETE для изображений — нужна session
     @provide(scope=Scope.REQUEST)
     def get_add_post_image_uc(
         self, session: AsyncSession, post_repo: PostRepository, image_repo: PostImageRepository
@@ -114,18 +117,19 @@ class AppProvider(Provider):
         return AddPostImageUseCase(session, post_repo, image_repo)
 
     @provide(scope=Scope.REQUEST)
-    def get_get_post_image_uc(
-        self, session: AsyncSession, post_repo: PostRepository, image_repo: PostImageRepository
-    ) -> GetPostImageUseCase:
-        return GetPostImageUseCase(session, post_repo, image_repo)
-
-    @provide(scope=Scope.REQUEST)
     def get_delete_post_image_uc(
         self, session: AsyncSession, post_repo: PostRepository, image_repo: PostImageRepository
     ) -> DeletePostImageUseCase:
         return DeletePostImageUseCase(session, post_repo, image_repo)
 
-    # Use Cases (comments)
+    # GET для изображений — НЕ нужна session
+    @provide(scope=Scope.REQUEST)
+    def get_get_post_image_uc(
+        self, post_repo: PostRepository, image_repo: PostImageRepository
+    ) -> GetPostImageUseCase:
+        return GetPostImageUseCase(post_repo, image_repo)
+
+    # ========== Use Cases (Comments) ==========
     @provide(scope=Scope.REQUEST)
     def get_create_comment_uc(
         self, session: AsyncSession, repo: CommentRepository,
@@ -156,18 +160,19 @@ class AppProvider(Provider):
         return AddCommentImageUseCase(session, comment_repo, image_repo)
 
     @provide(scope=Scope.REQUEST)
-    def get_get_comment_images_uc(
-        self, session: AsyncSession, comment_repo: CommentRepository, image_repo: CommentImageRepository
-    ) -> GetCommentImagesUseCase:
-        return GetCommentImagesUseCase(session, comment_repo, image_repo)
-
-    @provide(scope=Scope.REQUEST)
     def get_delete_comment_image_uc(
         self, session: AsyncSession, comment_repo: CommentRepository, image_repo: CommentImageRepository
     ) -> DeleteCommentImageUseCase:
         return DeleteCommentImageUseCase(session, comment_repo, image_repo)
 
-    # Use Cases (categories)
+    # GET для изображений комментариев — НЕ нужна session
+    @provide(scope=Scope.REQUEST)
+    def get_get_comment_images_uc(
+        self, comment_repo: CommentRepository, image_repo: CommentImageRepository
+    ) -> GetCommentImagesUseCase:
+        return GetCommentImagesUseCase(comment_repo, image_repo)
+
+    # ========== Use Cases (Categories) ==========
     @provide(scope=Scope.REQUEST)
     def get_create_category_uc(
         self, session: AsyncSession, repo: CategoryRepository
@@ -190,7 +195,7 @@ class AppProvider(Provider):
     def get_get_category_uc(self, repo: CategoryRepository) -> GetCategoryUseCase:
         return GetCategoryUseCase(repo)
 
-    # Use Cases (locations)
+    # ========== Use Cases (Locations) ==========
     @provide(scope=Scope.REQUEST)
     def get_create_location_uc(
         self, session: AsyncSession, repo: LocationRepository
@@ -213,7 +218,7 @@ class AppProvider(Provider):
     def get_get_location_uc(self, repo: LocationRepository) -> GetLocationUseCase:
         return GetLocationUseCase(repo)
 
-    # Use Cases (users)
+    # ========== Use Cases (Users) ==========
     @provide(scope=Scope.REQUEST)
     def get_create_user_uc(
         self, session: AsyncSession, repo: UserRepository

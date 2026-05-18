@@ -9,7 +9,6 @@ from src.domain.users.use_cases.update_user import UpdateUserUseCase
 from src.domain.users.use_cases.delete_user import DeleteUserUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
-from src.infrastructure.postgres.database import database
 
 from dishka.integrations.fastapi import FromDishka, inject
 import logging
@@ -50,7 +49,7 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
     )
 
 
-# ==================== PUBLIC ROUTES ====================
+# ==================== PUBLIC ROUTES (GET — требуют session от Dishka) ====================
 
 @public_router.post("/create", status_code=201, response_model=UserResponse)
 @inject
@@ -60,8 +59,7 @@ async def create_user(
 ):
     """Регистрация нового пользователя (публичный эндпоинт)"""
     try:
-        async with database.session() as session:
-            return await use_case.execute(session, user_data, is_public=True)
+        return await use_case.execute(user_data, is_public=True)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -72,11 +70,11 @@ async def create_user(
 async def get_all_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetUserUseCase] = None,
 ):
     try:
-        async with database.session() as session:
-            return await use_case.get_all(session, skip, limit)
+        return await use_case.get_all(session, skip, limit)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -87,11 +85,11 @@ async def get_all_users(
 async def get_active_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetUserUseCase] = None,
 ):
     try:
-        async with database.session() as session:
-            return await use_case.get_active_users(session, skip, limit)
+        return await use_case.get_active_users(session, skip, limit)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -101,11 +99,11 @@ async def get_active_users(
 @inject
 async def get_user(
     user_id: int,
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetUserUseCase] = None,
 ):
     try:
-        async with database.session() as session:
-            return await use_case.get_by_id(session, user_id)
+        return await use_case.get_by_id(session, user_id)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -115,11 +113,11 @@ async def get_user(
 @inject
 async def get_user_by_username(
     username: str,
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetUserUseCase] = None,
 ):
     try:
-        async with database.session() as session:
-            return await use_case.get_by_username(session, username)
+        return await use_case.get_by_username(session, username)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -129,17 +127,17 @@ async def get_user_by_username(
 @inject
 async def get_user_by_email(
     email: str,
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetUserUseCase] = None,
 ):
     try:
-        async with database.session() as session:
-            return await use_case.get_by_email(session, email)
+        return await use_case.get_by_email(session, email)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
 
 
-# ==================== PROTECTED ROUTES ====================
+# ==================== PROTECTED ROUTES (CREATE/UPDATE/DELETE — session уже в use case) ====================
 
 @protected_router.patch("/{user_id}", response_model=UserResponse)
 @inject
@@ -151,8 +149,7 @@ async def update_user(
 ):
     """Обновление пользователя - только сам пользователь"""
     try:
-        async with database.session() as session:
-            return await use_case.execute(session, user_id, update_data, current_user)
+        return await use_case.execute(user_id, update_data, current_user)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
@@ -167,8 +164,7 @@ async def delete_user(
 ):
     """Удаление пользователя - сам пользователь или админ"""
     try:
-        async with database.session() as session:
-            await use_case.execute(session, user_id, current_user)
+        await use_case.execute(user_id, current_user)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)

@@ -10,17 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class CreateUserUseCase:
-    def __init__(self, repo: UserRepository):
+    def __init__(self, session: AsyncSession, repo: UserRepository):
+        self._session = session
         self._repo = repo
 
-    async def execute(self, session: AsyncSession, user_data: UserCreate, is_public: bool = True) -> UserResponse:
+    async def execute(self, user_data: UserCreate, is_public: bool = True) -> UserResponse:
         """
         Создание пользователя.
         is_public=True - публичная регистрация (без проверки прав)
         """
         try:
             # Проверка на существующий username
-            if await self._repo.username_exists(session, user_data.username):
+            if await self._repo.username_exists(self._session, user_data.username):
                 raise ConflictError(
                     resource="User",
                     field="username",
@@ -28,7 +29,7 @@ class CreateUserUseCase:
                 )
 
             # Проверка на существующий email (если указан)
-            if user_data.email and await self._repo.email_exists(session, user_data.email):
+            if user_data.email and await self._repo.email_exists(self._session, user_data.email):
                 raise ConflictError(
                     resource="User",
                     field="email",
@@ -48,8 +49,8 @@ class CreateUserUseCase:
             if not user_dict.get("last_name"):
                 user_dict["last_name"] = ""
 
-            new_user = await self._repo.create(session, user_dict)
-            await session.commit()
+            new_user = await self._repo.create(self._session, user_dict)
+            await self._session.commit()
 
             return UserResponse.model_validate(new_user)
 

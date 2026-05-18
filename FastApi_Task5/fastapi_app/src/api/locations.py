@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Query, status, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.schemas.locations import LocationCreate, LocationUpdate, LocationResponse, LocationListResponse
 from src.domain.locations.use_cases.create_location import CreateLocationUseCase
 from src.domain.locations.use_cases.get_location import GetLocationUseCase
@@ -7,13 +9,19 @@ from src.domain.locations.use_cases.update_location import UpdateLocationUseCase
 from src.domain.locations.use_cases.delete_location import DeleteLocationUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import AppException
+from src.infrastructure.postgres.database import database
+
+from dishka.integrations.fastapi import FromDishka, inject
 import logging
+
 logger = logging.getLogger(__name__)
+
 # Публичный роутер - для GET запросов (без авторизации)
 public_router = APIRouter(prefix="/locations", tags=["Locations"])
 
 # Защищенный роутер - для POST, PATCH, DELETE (с авторизацией)
 protected_router = APIRouter(prefix="/locations", tags=["Locations"], dependencies=[Depends(get_current_user)])
+
 
 def handle_app_exception(exc: AppException) -> JSONResponse:
     """Конвертация AppException в HTTPException"""
@@ -41,72 +49,88 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
         }
     )
 
-# --- PUBLIC ROUTES (GET) на public_router ---
+
+# ==================== PUBLIC ROUTES ====================
 
 @public_router.get("/", response_model=LocationListResponse)
+@inject
 async def get_all_locations(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=1000),
+    use_case: FromDishka[GetLocationUseCase] = None,
 ):
     try:
-        use_case = GetLocationUseCase()
-        return await use_case.get_all(skip=skip, limit=limit)
+        return await use_case.get_all(session, skip, limit)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
+
 
 @public_router.get("/{location_id}", response_model=LocationResponse)
-async def get_location(location_id: int):
-    try:
-        use_case = GetLocationUseCase()
-        return await use_case.get_by_id(location_id)
-    except AppException as e:
-        logger.error(e.get_detail())
-        return handle_app_exception(e)
-
-@public_router.get("/name/{name}", response_model=LocationResponse)
-async def get_location_by_name(name: str):
-    try:
-        use_case = GetLocationUseCase()
-        return await use_case.get_by_name(name)
-    except AppException as e:
-        logger.error(e.get_detail())
-        return handle_app_exception(e)
-
-# --- PROTECTED ROUTES (POST, PATCH, DELETE) на protected_router ---
-
-@protected_router.post("/", status_code=201, response_model=LocationResponse)
-async def create_location(
-    location_data: LocationCreate,
-    current_user: dict = Depends(get_current_user)
+@inject
+async def get_location(
+    location_id: int,
+    use_case: FromDishka[GetLocationUseCase] = None,
 ):
     try:
-        use_case = CreateLocationUseCase()
+        return await use_case.get_by_id(session, location_id)
+    except AppException as e:
+        logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+
+@public_router.get("/name/{name}", response_model=LocationResponse)
+@inject
+async def get_location_by_name(
+    name: str,
+    use_case: FromDishka[GetLocationUseCase] = None,
+):
+    try:
+        return await use_case.get_by_name(session, name)
+    except AppException as e:
+        logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+
+# ==================== PROTECTED ROUTES ====================
+
+@protected_router.post("/", status_code=201, response_model=LocationResponse)
+@inject
+async def create_location(
+    location_data: LocationCreate,
+    current_user: dict = Depends(get_current_user),
+    use_case: FromDishka[CreateLocationUseCase] = None,
+):
+    try:
         return await use_case.execute(location_data, current_user)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
 
+
 @protected_router.patch("/{location_id}", response_model=LocationResponse)
+@inject
 async def update_location(
     location_id: int,
     update_data: LocationUpdate,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    use_case: FromDishka[UpdateLocationUseCase] = None,
 ):
     try:
-        use_case = UpdateLocationUseCase()
         return await use_case.execute(location_id, update_data, current_user)
     except AppException as e:
         logger.error(e.get_detail())
         return handle_app_exception(e)
 
+
 @protected_router.delete("/{location_id}", status_code=204)
+@inject
 async def delete_location(
     location_id: int,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    use_case: FromDishka[DeleteLocationUseCase] = None,
 ):
     try:
-        use_case = DeleteLocationUseCase()
         await use_case.execute(location_id, current_user)
     except AppException as e:
         logger.error(e.get_detail())

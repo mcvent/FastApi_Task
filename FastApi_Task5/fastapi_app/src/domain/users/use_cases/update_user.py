@@ -9,10 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class UpdateUserUseCase:
-    def __init__(self, repo: UserRepository):
+    def __init__(self,session: AsyncSession,  repo: UserRepository):
         self._repo = repo
+        self._session = session
 
-    async def execute(self, session: AsyncSession, user_id: int, update_data: UserUpdate, current_user: dict) -> UserResponse:
+    async def execute(self, user_id: int, update_data: UserUpdate, current_user: dict) -> UserResponse:
         try:
             # Проверка: только сам пользователь может редактировать свой профиль
             if current_user.get("id") != user_id:
@@ -24,7 +25,7 @@ class UpdateUserUseCase:
                 )
 
             # Проверяем существование пользователя
-            existing_user = await self._repo.get_by_id(session, user_id)
+            existing_user = await self._repo.get_by_id(self._session, user_id)
             if not existing_user:
                 raise NotFoundException(
                     resource="User",
@@ -34,7 +35,7 @@ class UpdateUserUseCase:
 
             # Если меняется email, проверяем уникальность
             if update_data.email is not None and update_data.email != existing_user.email:
-                if update_data.email and await self._repo.email_exists(session, update_data.email):
+                if update_data.email and await self._repo.email_exists(self._session, update_data.email):
                     raise ConflictError(
                         resource="User",
                         field="email",
@@ -47,8 +48,8 @@ class UpdateUserUseCase:
                 update_dict["password"] = get_password_hash(update_dict["password"])
 
             # Обновляем
-            updated_user = await self._repo.update(session, user_id, update_dict)
-            await session.commit()
+            updated_user = await self._repo.update(self._session, user_id, update_dict)
+            await self._session.commit()
 
             return UserResponse.model_validate(updated_user)
 
