@@ -1,5 +1,5 @@
 from src.infrastructure.postgres.database import Base
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import DateTime, Boolean, String, Text, ForeignKey, Integer,TIMESTAMP
 from datetime import datetime
 
@@ -17,4 +17,4 @@ class Post(Base):
     category_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("blog_category.id"), nullable=True)
     location_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("blog_location.id"), nullable=True)
     image: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    #image2: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    images = relationship("PostImage", backref="post", cascade="all, delete-orphan", order_by="PostImage.order")

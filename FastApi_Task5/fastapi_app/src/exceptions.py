@@ -183,3 +183,11 @@ class UploadFileIsNotImageException(AppException):
             message="Загруженный файл должен быть изображением (jpeg, jpg, png)",
             code="invalid_image_format"
         )
+
+class ImageNotFoundException(AppException):
+    def __init__(self, image_id: int):
+        super().__init__(
+            message=f"Изображение с id={image_id} не найдено",
+            code="image_not_found",
+            details={"image_id": image_id}
+        )

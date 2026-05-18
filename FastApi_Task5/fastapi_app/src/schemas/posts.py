@@ -49,6 +49,15 @@ class PostUpdate(BaseModel):
             raise ValueError("Заголовок не может состоять только из пробелов")
         return v
 
+class PostImageResponse(BaseModel):
+    id: int
+    image_path: str
+    order: int = 0
+
+class PostImagesListResponse(BaseModel):
+    items: list[PostImageResponse]
+    total: int
+
 class PostResponse(PostBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -58,5 +67,3 @@ class PostListResponse(BaseModel):
     items: list[PostResponse]
     total: int
 
-class PostImageResponse(BaseModel):
-    image_path: str

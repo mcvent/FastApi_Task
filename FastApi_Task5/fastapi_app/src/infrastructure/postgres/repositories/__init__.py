@@ -1,0 +1,2 @@
+from .post_image import PostImageRepository
+from .comment_image import CommentImageRepository

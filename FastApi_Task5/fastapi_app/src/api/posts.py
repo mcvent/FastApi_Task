@@ -7,6 +7,9 @@ from src.domain.posts.use_cases.update_post import UpdatePostUseCase
 from src.domain.posts.use_cases.delete_post import DeletePostUseCase
 from src.domain.posts.use_cases.get_post_image import GetPostImageUseCase
 from src.domain.posts.use_cases.add_post_image import AddPostImageUseCase
+from src.schemas.posts import PostImagesListResponse
+from src.domain.posts.use_cases.get_post_image import GetPostImageUseCase
+from src.domain.posts.use_cases.delete_post_image    import DeletePostImageUseCase
 from src.core.dependencies import get_current_user
 from src.exceptions import (AppException, PostNotFoundByIdException, PostHasNoImageException,
                             UploadFileIsNotImageException)
@@ -133,15 +136,40 @@ async def delete_post(
         logger.error(e.get_detail())
         return handle_app_exception(e)
 
-@public_router.get("/image/post/{post_id}", status_code=status.HTTP_200_OK, response_class=FileResponse)
-async def get_post_image(
+@public_router.get("/{post_id}/images/", response_model=PostImagesListResponse)
+async def get_post_images(
     post_id: int,
-    use_case: GetPostImageUseCase = Depends()
+    use_case: GetPostImageUseCase = Depends(),
+):
+    """
+    Получить все изображения поста.
+    Доступно всем (публичный эндпоинт).
+    """
+    try:
+        return await use_case.get_all_images(post_id=post_id)
+    except AppException as e:
+        return handle_app_exception(e)
+
+# @public_router.get("/image/post/{post_id}", status_code=status.HTTP_200_OK, response_class=FileResponse)
+# async def get_post_image(
+#     post_id: int,
+#     use_case: GetPostImageUseCase = Depends()
+# ):
+#     try:
+#         return await use_case.execute(post_id=post_id)
+#     except (PostNotFoundByIdException, PostHasNoImageException) as e:
+#         logger.error(e.get_detail())
+#         return handle_app_exception(e)
+
+@public_router.get("/{post_id}/images/{image_id}/", response_class=FileResponse)
+async def get_post_image_by_id(
+    post_id: int,
+    image_id: int,
+    use_case: GetPostImageUseCase = Depends(),
 ):
     try:
-        return await use_case.execute(post_id=post_id)
-    except (PostNotFoundByIdException, PostHasNoImageException) as e:
-        logger.error(e.get_detail())
+        return await use_case.get_image_by_id(post_id=post_id, image_id=image_id)
+    except AppException as e:
         return handle_app_exception(e)
 
 
@@ -156,4 +184,16 @@ async def add_post_image(
         return await use_case.execute(post_id=post_id, image=image, current_user=current_user)
     except AppException as e:
         logger.error(e.get_detail())
+        return handle_app_exception(e)
+
+@protected_router.delete("/{post_id}/images/{image_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_post_image(
+    post_id: int,
+    image_id: int,
+    current_user: dict = Depends(get_current_user),
+    use_case: DeletePostImageUseCase = Depends(),
+):
+    try:
+        await use_case.execute(post_id=post_id, image_id=image_id, current_user=current_user)
+    except AppException as e:
         return handle_app_exception(e)
