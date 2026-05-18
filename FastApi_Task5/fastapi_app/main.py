@@ -16,7 +16,7 @@ def setup_logging():
         datefmt='%Y-%m-%d %H:%M:%S',
         handlers=[
             logging.StreamHandler(sys.stdout),  # В консоль
-            logging.FileHandler('app.log', encoding='utf-8')  # В файл
+            logging.FileHandler(settings.LOG_FILE, encoding='utf-8')  # В файл
         ]
     )
 

@@ -21,7 +21,7 @@ def setup_logging():
     logger.addHandler(console_handler)
 
     # Вывод в файл
-    file_handler = logging.FileHandler('app.log', encoding='utf-8')
+    file_handler = logging.FileHandler('logs', encoding='utf-8')
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 

@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., env="SECRET_KEY")
     ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    LOG_FILE: str = Field(default="app.log", env="LOG_FILE")
+    LOG_FILE: str = Field(default="logs", env="LOG_FILE")
     LOG_LEVEL: str = Field(default="ERROR", env="LOG_LEVEL")
 
     # # Пути

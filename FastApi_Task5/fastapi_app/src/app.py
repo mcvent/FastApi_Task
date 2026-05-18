@@ -160,19 +160,26 @@ def create_app() -> FastAPI:
         return app.openapi_schema
 
     app.openapi = custom_openapi
-    # Отладка запросов при ошибках
-    # @app.middleware("http")
-    # async def debug_auth_middleware(request: Request, call_next):
-    #     print(f"\nREQUEST: {request.method} {request.url.path}")
-    #     print(f"HEADERS: {dict(request.headers)}")
-    #
-    #     auth_header = request.headers.get("Authorization")
-    #     if auth_header:
-    #         print(f"Authorization header: {auth_header[:50]}...")
-    #     else:
-    #         print(f"No Authorization header!")
-    #
-    #     response = await call_next(request)
-    #     return response
+
+    @app.middleware("http")
+    async def log_all_requests(request: Request, call_next):
+        import time
+
+        start_time = time.time()
+
+        # Пропускаем статику и docs
+        skip_paths = ["/docs", "/openapi.json", "/static"]
+        should_skip = any(request.url.path.startswith(path) for path in skip_paths)
+
+        if not should_skip:
+            logger.info(f" -> {request.method} {request.url.path}")
+
+        response = await call_next(request)
+
+        if not should_skip:
+            process_time = time.time() - start_time
+            logger.info(f"️<- {request.method} {request.url.path} - {response.status_code} ({process_time:.3f}s)")
+
+        return response
 
     return app

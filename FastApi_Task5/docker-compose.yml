@@ -37,6 +37,7 @@ services:
 #      - ./db.sqlite3:/app/db.sqlite3
       - ./fastapi_app/static/images:/app/static/images
       - ./alembic/versions:/app/alembic/versions
+      - ./logs/app.log:/app/app.log
     env_file:
       - .env
     environment:
