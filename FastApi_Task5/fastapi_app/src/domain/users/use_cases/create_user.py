@@ -1,58 +1,57 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.users import UserRepository
 from src.schemas.users import UserCreate, UserResponse
 from src.exceptions import ConflictError, DatabaseException
 from src.core.security import get_password_hash
 from datetime import datetime
 import logging
+
 logger = logging.getLogger(__name__)
 
-class CreateUserUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = UserRepository()
 
-    async def execute(self, user_data: UserCreate, is_public: bool = True) -> UserResponse:
+class CreateUserUseCase:
+    def __init__(self, repo: UserRepository):
+        self._repo = repo
+
+    async def execute(self, session: AsyncSession, user_data: UserCreate, is_public: bool = True) -> UserResponse:
         """
         Создание пользователя.
         is_public=True - публичная регистрация (без проверки прав)
         """
         try:
+            # Проверка на существующий username
+            if await self._repo.username_exists(session, user_data.username):
+                raise ConflictError(
+                    resource="User",
+                    field="username",
+                    value=user_data.username
+                )
 
-            async with self._database.session() as session:
-                # Проверка на существующий username
-                if await self._repo.username_exists(session, user_data.username):
-                    raise ConflictError(
-                        resource="User",
-                        field="username",
-                        value=user_data.username
-                    )
+            # Проверка на существующий email (если указан)
+            if user_data.email and await self._repo.email_exists(session, user_data.email):
+                raise ConflictError(
+                    resource="User",
+                    field="email",
+                    value=user_data.email
+                )
 
-                # Проверка на существующий email (если указан)
-                if user_data.email and await self._repo.email_exists(session, user_data.email):
-                    raise ConflictError(
-                        resource="User",
-                        field="email",
-                        value=user_data.email
-                    )
+            # Создаем пользователя
+            user_dict = user_data.model_dump()
+            user_dict["password"] = get_password_hash(user_data.password)
+            user_dict["date_joined"] = datetime.now()
 
-                # Создаем пользователя
-                user_dict = user_data.model_dump()
-                user_dict["password"] = get_password_hash(user_data.password)
-                user_dict["date_joined"] = datetime.now()
+            # Убираем None значения для обязательных полей
+            if not user_dict.get("email"):
+                user_dict["email"] = ""
+            if not user_dict.get("first_name"):
+                user_dict["first_name"] = ""
+            if not user_dict.get("last_name"):
+                user_dict["last_name"] = ""
 
-                # Убираем None значения для обязательных полей
-                if not user_dict.get("email"):
-                    user_dict["email"] = ""
-                if not user_dict.get("first_name"):
-                    user_dict["first_name"] = ""
-                if not user_dict.get("last_name"):
-                    user_dict["last_name"] = ""
+            new_user = await self._repo.create(session, user_dict)
+            await session.commit()
 
-                new_user = await self._repo.create(session, user_dict)
-                await session.commit()
-
-                return UserResponse.model_validate(new_user)
+            return UserResponse.model_validate(new_user)
 
         except ConflictError:
             raise

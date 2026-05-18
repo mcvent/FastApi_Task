@@ -1,17 +1,18 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.users import UserRepository
 from src.schemas.users import UserUpdate, UserResponse
 from src.exceptions import NotFoundException, ConflictError, DatabaseException, ForbiddenError
 from src.core.security import get_password_hash
 import logging
+
 logger = logging.getLogger(__name__)
 
-class UpdateUserUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = UserRepository()
 
-    async def execute(self, user_id: int, update_data: UserUpdate, current_user: dict) -> UserResponse:
+class UpdateUserUseCase:
+    def __init__(self, repo: UserRepository):
+        self._repo = repo
+
+    async def execute(self, session: AsyncSession, user_id: int, update_data: UserUpdate, current_user: dict) -> UserResponse:
         try:
             # Проверка: только сам пользователь может редактировать свой профиль
             if current_user.get("id") != user_id:
@@ -22,35 +23,34 @@ class UpdateUserUseCase:
                     details={"user_id": user_id, "current_user_id": current_user.get("id")}
                 )
 
-            async with self._database.session() as session:
-                # Проверяем существование пользователя
-                existing_user = await self._repo.get_by_id(session, user_id)
-                if not existing_user:
-                    raise NotFoundException(
+            # Проверяем существование пользователя
+            existing_user = await self._repo.get_by_id(session, user_id)
+            if not existing_user:
+                raise NotFoundException(
+                    resource="User",
+                    field="id",
+                    value=user_id
+                )
+
+            # Если меняется email, проверяем уникальность
+            if update_data.email is not None and update_data.email != existing_user.email:
+                if update_data.email and await self._repo.email_exists(session, update_data.email):
+                    raise ConflictError(
                         resource="User",
-                        field="id",
-                        value=user_id
+                        field="email",
+                        value=update_data.email
                     )
 
-                # Если меняется email, проверяем уникальность
-                if update_data.email is not None and update_data.email != existing_user.email:
-                    if update_data.email and await self._repo.email_exists(session, update_data.email):
-                        raise ConflictError(
-                            resource="User",
-                            field="email",
-                            value=update_data.email
-                        )
+            # Если меняется пароль - хешируем
+            update_dict = update_data.model_dump(exclude_unset=True)
+            if "password" in update_dict and update_dict["password"]:
+                update_dict["password"] = get_password_hash(update_dict["password"])
 
-                # Если меняется пароль - хешируем
-                update_dict = update_data.model_dump(exclude_unset=True)
-                if "password" in update_dict and update_dict["password"]:
-                    update_dict["password"] = get_password_hash(update_dict["password"])
+            # Обновляем
+            updated_user = await self._repo.update(session, user_id, update_dict)
+            await session.commit()
 
-                # Обновляем
-                updated_user = await self._repo.update(session, user_id, update_dict)
-                await session.commit()
-
-                return UserResponse.model_validate(updated_user)
+            return UserResponse.model_validate(updated_user)
 
         except (NotFoundException, ConflictError, ForbiddenError):
             raise

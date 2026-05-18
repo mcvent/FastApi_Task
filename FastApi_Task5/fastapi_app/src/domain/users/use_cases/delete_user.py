@@ -1,15 +1,16 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.users import UserRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
+
 logger = logging.getLogger(__name__)
 
-class DeleteUserUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = UserRepository()
 
-    async def execute(self, user_id: int, current_user: dict) -> bool:
+class DeleteUserUseCase:
+    def __init__(self, repo: UserRepository):
+        self._repo = repo
+
+    async def execute(self, session: AsyncSession, user_id: int, current_user: dict) -> bool:
         try:
             # Проверка: сам пользователь или админ могут удалять
             is_self = current_user.get("id") == user_id
@@ -23,18 +24,17 @@ class DeleteUserUseCase:
                     details={"user_id": user_id, "current_user_id": current_user.get("id")}
                 )
 
-            async with self._database.session() as session:
-                user = await self._repo.get_by_id(session, user_id)
-                if not user:
-                    raise NotFoundException(
-                        resource="User",
-                        field="id",
-                        value=user_id
-                    )
+            user = await self._repo.get_by_id(session, user_id)
+            if not user:
+                raise NotFoundException(
+                    resource="User",
+                    field="id",
+                    value=user_id
+                )
 
-                success = await self._repo.delete(session, user_id)
-                await session.commit()
-                return success
+            success = await self._repo.delete(session, user_id)
+            await session.commit()
+            return success
 
         except (NotFoundException, ForbiddenError):
             raise
