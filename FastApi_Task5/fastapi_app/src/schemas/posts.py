@@ -23,6 +23,14 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pub_date: datetime
 
+    @field_validator("category_id", "location_id", mode="before")
+    @classmethod
+    def convert_zero_to_none(cls, v):
+        """Превращает 0 в None для внешних ключей"""
+        if v == 0:
+            return None
+        return v
+
 class PostUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=256)
     text: Optional[str] = Field(default=None, min_length=1)
