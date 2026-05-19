@@ -1,45 +1,43 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.schemas.comments import CommentUpdate, CommentResponse
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class UpdateCommentUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CommentRepository()
+    def __init__(self, session: AsyncSession, repo: CommentRepository):
+        self._session = session
+        self._repo = repo
 
     async def execute(self, comment_id: int, update_data: CommentUpdate, current_user: dict) -> CommentResponse:
         try:
-            async with self._database.session() as session:
-                comment = await self._repo.get_by_id(session, comment_id)
-                if not comment:
-                    raise NotFoundException(
-                        resource="Comment",
-                        field="id",
-                        value=comment_id
-                    )
-
-                # Проверка: только автор комментария может редактировать
-                print(current_user.get("id"))
-                if comment.author_id != current_user.get("id"):
-                    raise ForbiddenError(
-                        message="Только автор комментария может его редактировать",
-                        required_role="comment_author",
-                        user_role="other_user",
-                        details={"comment_author_id": comment.author_id, "current_user_id": current_user.get("id")}
-                    )
-
-                updated_comment = await self._repo.update(
-                    session,
-                    comment_id,
-                    update_data.model_dump(exclude_unset=True)
+            comment = await self._repo.get_by_id(self._session, comment_id)
+            if not comment:
+                raise NotFoundException(
+                    resource="Comment",
+                    field="id",
+                    value=comment_id
                 )
-                await session.commit()
 
-                return CommentResponse.model_validate(updated_comment)
+            if comment.author_id != current_user.get("id"):
+                raise ForbiddenError(
+                    message="Только автор комментария может его редактировать",
+                    required_role="comment_author",
+                    user_role="other_user",
+                    details={"comment_author_id": comment.author_id, "current_user_id": current_user.get("id")}
+                )
+
+            updated_comment = await self._repo.update(
+                self._session,
+                comment_id,
+                update_data.model_dump(exclude_unset=True)
+            )
+            await self._session.commit()
+
+            return CommentResponse.model_validate(updated_comment)
 
         except (NotFoundException, ForbiddenError):
             raise
@@ -50,6 +48,6 @@ class UpdateCommentUseCase:
             raise
         except Exception as e:
             raise DatabaseException(
-                message=f"Странная ошибка при обновлении комментария: {str(e)}",
+                message=f"Ошибка при обновлении комментария: {str(e)}",
                 details={"use_case": "UpdateCommentUseCase", "comment_id": comment_id}
             )

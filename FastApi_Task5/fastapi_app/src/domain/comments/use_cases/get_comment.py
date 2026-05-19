@@ -1,27 +1,26 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.schemas.comments import CommentResponse, CommentListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
+
 logger = logging.getLogger(__name__)
 
+
 class GetCommentUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CommentRepository()
+    def __init__(self, repo: CommentRepository):
+        self._repo = repo
 
-    async def get_by_id(self, comment_id: int) -> CommentResponse:
+    async def get_by_id(self, session: AsyncSession, comment_id: int) -> CommentResponse:
         try:
-            async with self._database.session() as session:
-                comment = await self._repo.get_by_id(session, comment_id)
-                if not comment:
-                    raise NotFoundException(
-                        resource="Comment",
-                        field="id",
-                        value=comment_id
-                    )
-                return CommentResponse.model_validate(comment)
-
+            comment = await self._repo.get_by_id(session, comment_id)
+            if not comment:
+                raise NotFoundException(
+                    resource="Comment",
+                    field="id",
+                    value=comment_id
+                )
+            return CommentResponse.model_validate(comment)
         except NotFoundException:
             raise
         except DatabaseException as e:
@@ -35,15 +34,13 @@ class GetCommentUseCase:
                 details={"use_case": "GetCommentUseCase", "comment_id": comment_id}
             )
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> CommentListResponse:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            async with self._database.session() as session:
-                comments, total = await self._repo.get_all(session, skip, limit)
-                return CommentListResponse(
-                    items=[CommentResponse.model_validate(c) for c in comments],
-                    total=total
-                )
-
+            comments, total = await self._repo.get_all(session, skip, limit)
+            return CommentListResponse(
+                items=[CommentResponse.model_validate(c) for c in comments],
+                total=total
+            )
         except DatabaseException as e:
             e.details["use_case"] = "GetCommentUseCase"
             e.details["method"] = "get_all"
@@ -56,15 +53,13 @@ class GetCommentUseCase:
                 details={"use_case": "GetCommentUseCase"}
             )
 
-    async def get_by_post(self, post_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
+    async def get_by_post(self, session: AsyncSession, post_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            async with self._database.session() as session:
-                comments, total = await self._repo.get_by_post(session, post_id, skip, limit)
-                return CommentListResponse(
-                    items=[CommentResponse.model_validate(c) for c in comments],
-                    total=total
-                )
-
+            comments, total = await self._repo.get_by_post(session, post_id, skip, limit)
+            return CommentListResponse(
+                items=[CommentResponse.model_validate(c) for c in comments],
+                total=total
+            )
         except DatabaseException as e:
             e.details["use_case"] = "GetCommentUseCase"
             e.details["method"] = "get_by_post"
@@ -78,15 +73,13 @@ class GetCommentUseCase:
                 details={"use_case": "GetCommentUseCase", "post_id": post_id}
             )
 
-    async def get_by_author(self, author_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
+    async def get_by_author(self, session: AsyncSession, author_id: int, skip: int = 0, limit: int = 100) -> CommentListResponse:
         try:
-            async with self._database.session() as session:
-                comments, total = await self._repo.get_by_author(session, author_id, skip, limit)
-                return CommentListResponse(
-                    items=[CommentResponse.model_validate(c) for c in comments],
-                    total=total
-                )
-
+            comments, total = await self._repo.get_by_author(session, author_id, skip, limit)
+            return CommentListResponse(
+                items=[CommentResponse.model_validate(c) for c in comments],
+                total=total
+            )
         except DatabaseException as e:
             e.details["use_case"] = "GetCommentUseCase"
             e.details["method"] = "get_by_author"

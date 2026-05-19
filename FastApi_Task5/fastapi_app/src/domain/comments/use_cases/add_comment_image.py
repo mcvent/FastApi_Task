@@ -2,8 +2,8 @@ from uuid import uuid4
 import shutil
 import os
 from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.infrastructure.postgres.database import database
 from src.infrastructure.postgres.repositories.comments import CommentRepository
 from src.infrastructure.postgres.repositories.comment_image import CommentImageRepository
 from src.schemas.comments import CommentImageResponse
@@ -19,10 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class AddCommentImageUseCase:
-    def __init__(self):
-        self._database = database
-        self._comment_repo = CommentRepository()
-        self._image_repo = CommentImageRepository()
+    def __init__(
+        self,
+        session: AsyncSession,
+        comment_repo: CommentRepository,
+        image_repo: CommentImageRepository
+    ):
+        self._session = session
+        self._comment_repo = comment_repo
+        self._image_repo = image_repo
         self.image_folder = "static/images/comments"
 
         os.makedirs(self.image_folder, exist_ok=True)
@@ -35,29 +40,28 @@ class AddCommentImageUseCase:
             raise UploadFileIsNotImageException()
 
         try:
-            async with self._database.session() as session:
-                comment = await self._comment_repo.get_by_id(session, comment_id)
-                if not comment:
-                    raise CommentNotFoundByIdException(comment_id)
+            comment = await self._comment_repo.get_by_id(self._session, comment_id)
+            if not comment:
+                raise CommentNotFoundByIdException(comment_id)
 
-                if comment.author_id != current_user.get("id"):
-                    raise ForbiddenError("Только автор может добавлять изображения к комментарию")
+            if comment.author_id != current_user.get("id"):
+                raise ForbiddenError("Только автор может добавлять изображения к комментарию")
 
-                new_image_name = f"comment_{comment_id}_{uuid4()}.{file_extension}"
-                new_image_path = os.path.join(self.image_folder, new_image_name)
+            new_image_name = f"comment_{comment_id}_{uuid4()}.{file_extension}"
+            new_image_path = os.path.join(self.image_folder, new_image_name)
 
-                with open(new_image_path, "wb") as buffer:
-                    shutil.copyfileobj(image.file, buffer)
+            with open(new_image_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
 
-                new_image = await self._image_repo.create(session, comment_id, new_image_name)
-                await session.commit()
+            new_image = await self._image_repo.create(self._session, comment_id, new_image_name)
+            await self._session.commit()
 
-                logger.info(f"Добавлено изображение {new_image_name} к комментарию {comment_id}")
+            logger.info(f"Добавлено изображение {new_image_name} к комментарию {comment_id}")
 
-                return CommentImageResponse(
-                    id=new_image.id,
-                    image_path=new_image.image_path
-                )
+            return CommentImageResponse(
+                id=new_image.id,
+                image_path=new_image.image_path
+            )
         except (CommentNotFoundByIdException, ForbiddenError, UploadFileIsNotImageException):
             raise
         except DatabaseException as e:
