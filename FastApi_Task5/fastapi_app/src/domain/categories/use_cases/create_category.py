@@ -1,16 +1,17 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryCreate, CategoryResponse
 from src.exceptions import ConflictError, DatabaseException, ForbiddenError
 from datetime import datetime
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class CreateCategoryUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CategoryRepository()
+    def __init__(self, session: AsyncSession, repo: CategoryRepository):
+        self._session = session
+        self._repo = repo
 
     async def execute(self, category_data: CategoryCreate, current_user: dict) -> CategoryResponse:
         try:
@@ -22,22 +23,21 @@ class CreateCategoryUseCase:
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
 
-            async with self._database.session() as session:
-                # Проверка на существующий slug через репозиторий (бизнес-логика)
-                if await self._repo.slug_exists(session, category_data.slug):
-                    raise ConflictError(
-                        resource="Category",
-                        field="slug",
-                        value=category_data.slug
-                    )
+            # Проверка на существующий slug
+            if await self._repo.slug_exists(self._session, category_data.slug):
+                raise ConflictError(
+                    resource="Category",
+                    field="slug",
+                    value=category_data.slug
+                )
 
-                category_dict = category_data.model_dump()
-                category_dict["created_at"] = datetime.now()
+            category_dict = category_data.model_dump()
+            category_dict["created_at"] = datetime.now()
 
-                category = await self._repo.create(session, category_dict)
-                await session.commit()
+            category = await self._repo.create(self._session, category_dict)
+            await self._session.commit()
 
-                return CategoryResponse.model_validate(category)
+            return CategoryResponse.model_validate(category)
 
         except (ConflictError, ForbiddenError):
             raise

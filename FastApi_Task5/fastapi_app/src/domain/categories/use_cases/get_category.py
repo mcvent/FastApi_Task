@@ -1,28 +1,26 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryResponse, CategoryListResponse
 from src.exceptions import NotFoundException, DatabaseException
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class GetCategoryUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CategoryRepository()
+    def __init__(self, repo: CategoryRepository):
+        self._repo = repo
 
-    async def get_by_id(self, category_id: int) -> CategoryResponse:
+    async def get_by_id(self, session: AsyncSession, category_id: int) -> CategoryResponse:
         try:
-            async with self._database.session() as session:
-                category = await self._repo.get_by_id(session, category_id)
-                if not category:
-                    raise NotFoundException(
-                        resource="Category",
-                        field="id",
-                        value=category_id
-                    )
-                return CategoryResponse.model_validate(category)
-
+            category = await self._repo.get_by_id(session, category_id)
+            if not category:
+                raise NotFoundException(
+                    resource="Category",
+                    field="id",
+                    value=category_id
+                )
+            return CategoryResponse.model_validate(category)
         except NotFoundException:
             raise
         except DatabaseException as e:
@@ -36,15 +34,13 @@ class GetCategoryUseCase:
                 details={"use_case": "GetCategoryUseCase", "category_id": category_id}
             )
 
-    async def get_all(self, skip: int = 0, limit: int = 100) -> CategoryListResponse:
+    async def get_all(self, session: AsyncSession, skip: int = 0, limit: int = 100) -> CategoryListResponse:
         try:
-            async with self._database.session() as session:
-                categories, total = await self._repo.get_all(session, skip, limit)
-                return CategoryListResponse(
-                    items=[CategoryResponse.model_validate(c) for c in categories],
-                    total=total
-                )
-
+            categories, total = await self._repo.get_all(session, skip, limit)
+            return CategoryListResponse(
+                items=[CategoryResponse.model_validate(c) for c in categories],
+                total=total
+            )
         except DatabaseException as e:
             e.details["use_case"] = "GetCategoryUseCase"
             e.details["method"] = "get_all"
@@ -57,18 +53,16 @@ class GetCategoryUseCase:
                 details={"use_case": "GetCategoryUseCase"}
             )
 
-    async def get_by_slug(self, slug: str) -> CategoryResponse:
+    async def get_by_slug(self, session: AsyncSession, slug: str) -> CategoryResponse:
         try:
-            async with self._database.session() as session:
-                category = await self._repo.get_by_slug(session, slug)
-                if not category:
-                    raise NotFoundException(
-                        resource="Category",
-                        field="slug",
-                        value=slug
-                    )
-                return CategoryResponse.model_validate(category)
-
+            category = await self._repo.get_by_slug(session, slug)
+            if not category:
+                raise NotFoundException(
+                    resource="Category",
+                    field="slug",
+                    value=slug
+                )
+            return CategoryResponse.model_validate(category)
         except NotFoundException:
             raise
         except DatabaseException as e:

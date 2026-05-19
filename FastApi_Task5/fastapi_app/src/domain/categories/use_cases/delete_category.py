@@ -1,14 +1,15 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.exceptions import NotFoundException, DatabaseException, ForbiddenError
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class DeleteCategoryUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CategoryRepository()
+    def __init__(self, session: AsyncSession, repo: CategoryRepository):
+        self._session = session
+        self._repo = repo
 
     async def execute(self, category_id: int, current_user: dict) -> bool:
         try:
@@ -20,18 +21,17 @@ class DeleteCategoryUseCase:
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
 
-            async with self._database.session() as session:
-                category = await self._repo.get_by_id(session, category_id)
-                if not category:
-                    raise NotFoundException(
-                        resource="Category",
-                        field="id",
-                        value=category_id
-                    )
+            category = await self._repo.get_by_id(self._session, category_id)
+            if not category:
+                raise NotFoundException(
+                    resource="Category",
+                    field="id",
+                    value=category_id
+                )
 
-                success = await self._repo.delete(session, category_id)
-                await session.commit()
-                return success
+            success = await self._repo.delete(self._session, category_id)
+            await self._session.commit()
+            return success
 
         except (NotFoundException, ForbiddenError):
             raise

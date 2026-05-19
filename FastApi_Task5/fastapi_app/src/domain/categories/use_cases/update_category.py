@@ -1,15 +1,16 @@
-from src.infrastructure.postgres.database import database
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.infrastructure.postgres.repositories.categories import CategoryRepository
 from src.schemas.categories import CategoryUpdate, CategoryResponse
 from src.exceptions import NotFoundException, ConflictError, DatabaseException, ForbiddenError
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class UpdateCategoryUseCase:
-    def __init__(self):
-        self._database = database
-        self._repo = CategoryRepository()
+    def __init__(self, session: AsyncSession, repo: CategoryRepository):
+        self._session = session
+        self._repo = repo
 
     async def execute(self, category_id: int, update_data: CategoryUpdate, current_user: dict) -> CategoryResponse:
         try:
@@ -21,33 +22,32 @@ class UpdateCategoryUseCase:
                     user_role="user" if not current_user.get("is_superuser") else "superuser"
                 )
 
-            async with self._database.session() as session:
-                # Проверяем существование категории
-                existing_category = await self._repo.get_by_id(session, category_id)
-                if not existing_category:
-                    raise NotFoundException(
+            # Проверяем существование категории
+            existing_category = await self._repo.get_by_id(self._session, category_id)
+            if not existing_category:
+                raise NotFoundException(
+                    resource="Category",
+                    field="id",
+                    value=category_id
+                )
+
+            # Если меняется slug, проверяем уникальность
+            if update_data.slug is not None and update_data.slug != existing_category.slug:
+                if await self._repo.slug_exists(self._session, update_data.slug):
+                    raise ConflictError(
                         resource="Category",
-                        field="id",
-                        value=category_id
+                        field="slug",
+                        value=update_data.slug
                     )
 
-                # Если меняется slug, проверяем уникальность
-                if update_data.slug is not None and update_data.slug != existing_category.slug:
-                    if await self._repo.slug_exists(session, update_data.slug):
-                        raise ConflictError(
-                            resource="Category",
-                            field="slug",
-                            value=update_data.slug
-                        )
+            category = await self._repo.update(
+                self._session,
+                category_id,
+                update_data.model_dump(exclude_unset=True)
+            )
+            await self._session.commit()
 
-                category = await self._repo.update(
-                    session,
-                    category_id,
-                    update_data.model_dump(exclude_unset=True)
-                )
-                await session.commit()
-
-                return CategoryResponse.model_validate(category)
+            return CategoryResponse.model_validate(category)
 
         except (NotFoundException, ConflictError, ForbiddenError):
             raise
