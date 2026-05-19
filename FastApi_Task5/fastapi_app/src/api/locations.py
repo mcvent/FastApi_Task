@@ -56,6 +56,7 @@ def handle_app_exception(exc: AppException) -> JSONResponse:
 @inject
 async def get_all_locations(
     skip: int = Query(0, ge=0),
+    session: FromDishka[AsyncSession] = None,
     limit: int = Query(100, ge=1, le=1000),
     use_case: FromDishka[GetLocationUseCase] = None,
 ):
@@ -70,6 +71,7 @@ async def get_all_locations(
 @inject
 async def get_location(
     location_id: int,
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetLocationUseCase] = None,
 ):
     try:
@@ -83,6 +85,7 @@ async def get_location(
 @inject
 async def get_location_by_name(
     name: str,
+    session: FromDishka[AsyncSession] = None,
     use_case: FromDishka[GetLocationUseCase] = None,
 ):
     try:
