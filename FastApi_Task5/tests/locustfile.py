@@ -34,11 +34,10 @@ class FastAPIUser(HttpUser):
         if login_response.status_code == 200:
             self.token = login_response.json().get("access_token")
             self.headers = {"Authorization": f"Bearer {self.token}"}
-            print(f"✅ {self.username} (id={self.user_id}) авторизован")
         else:
             self.token = None
             self.headers = {}
-    # ========== GET эндпоинты (не требуют авторизации) ==========
+    # GET эндпоинты (не требуют авторизации)
 
     @task(3)  # вес 3 — чаще других
     def get_posts(self):
@@ -75,7 +74,7 @@ class FastAPIUser(HttpUser):
         author_id = random.randint(5, 25)
         self.client.get(f"/posts/author/{author_id}?skip=0&limit=10", headers=self.headers)
 
-    # ========== POST эндпоинты (требуют токен) ==========
+    # POST эндпоинты (требуют токен)
 
     @task(1)
     def create_post(self):
@@ -114,8 +113,6 @@ class FastAPIUser(HttpUser):
                                     json=data,
                                     headers=self.headers)
 
-        if response.status_code != 201:
-            print(f"❌ Ошибка создания комментария: {response.status_code} - {response.text}")
 
     @task(1)
     def register_user(self):
@@ -127,15 +124,6 @@ class FastAPIUser(HttpUser):
             "email": f"user_{random_suffix}@test.com"
         }
         self.client.post("/users/create", json=data)
-
-    # @task(1)
-    # def delete_my_post(self):
-    #     """DELETE /posts/{id} — удаление своего поста"""
-    #     if not self.token or not self.my_posts:
-    #         return
-    #
-    #     post_id = self.my_posts.pop()
-    #     self.client.delete(f"/posts/{post_id}", headers=self.headers)
 
 
 class FastAPIAdminUser(HttpUser):
@@ -159,11 +147,9 @@ class FastAPIAdminUser(HttpUser):
         if login_response.status_code == 200:
             self.token = login_response.json().get("access_token")
             self.headers = {"Authorization": f"Bearer {self.token}"}
-            print(f"✅ Админ {self.username} (id={self.user_id}) авторизован")
         else:
             self.token = None
             self.headers = {}
-            print(f"❌ Ошибка авторизации админа: {login_response.status_code}")
 
     @task(3)
     def get_posts(self):
